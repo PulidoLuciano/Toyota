@@ -1,0 +1,116 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+#.env
+.venv
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+
+# Dagster
+dagster.yaml
+dagster_home/
+.dagster/
+runs/
+logs/
+*.db
+.tmp_dagster_*
+
+# dbt
+target/
+dbt_packages/
+logs/
+profiles.yml
+#dbt_project.yml
+*.prof
+*.prof.yml
+*.prof.yaml
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+#*.ipynb
+
+# Data files
+*.csv
+*.parquet
+*.json
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Local development
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Airflow (if used)
+airflow/
+airflow.cfg
+airflow.db
+
+# Prefect (if used)
+.prefect/
+prefect.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# System files
+.DS_Store
+Thumbs.db 

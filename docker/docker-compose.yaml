@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:17.5
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} 
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d
+    networks:
+      - dataeng_network
+
+# web:
+# image: mlflow_server
+# container_name: mlflow_server
+# build: ./mlflow
+# restart: always
+# depends_on: 
+# - postgres
+# ports:
+# - "5000:5000"
+# command: mlflow server --backend-store-uri postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres/mlflow_db -h 0.0.0.0 -p 5000
+# networks:
+# - dataeng_network
+
+volumes: 
+  postgres_data:
+
+networks: 
+  dataeng_network:
+    driver: bridge

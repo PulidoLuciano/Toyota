@@ -155,7 +155,9 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
         mlflow.log_metrics(metrics)
         mlflow.end_run()
         metrics_all.append(metrics)
-    return metrics_all
+    metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    mlflow.log_metrics(metrics_means)
+    return metrics_means
 
 
 toyota_strings_notebook = define_dagstermill_asset(

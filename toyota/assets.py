@@ -166,9 +166,19 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_strings.ipynb"),
-    group_name="raw_data_analysis",
+    group_name="exploratory_data_analysis",
     description="Strings analysis of the Toyota dataset",
     ins={
         "toyota_df": dg.AssetIn(key=dg.AssetKey("toyota_df")),
+    }
+)
+
+toyota_clean_eda_notebook = define_dagstermill_asset(
+    name="toyota_clean_eda_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_clean_eda.ipynb"),
+    group_name="exploratory_data_analysis",
+    description="Exploratory data analysis of the cleaned Toyota dataset",
+    ins={
+        "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
     }
 )

@@ -100,6 +100,7 @@ def split_folds(context: dg.AssetExecutionContext, toyota_clean: pd.DataFrame):
     mlflow = context.resources.mlflow
     mlflow.set_tag("mlflow.runName", "toyota_runs")
     mlflow.log_params(split_params)
+    mlflow.log_params({"n_features": len(toyota_clean.columns) - 1, "n_observations": len(toyota_clean)})
 
     return train_indexes, test_indexes
 

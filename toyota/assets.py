@@ -1,5 +1,5 @@
 import dagster as dg
-from .utils import load_dataset, get_metrics
+from .utils import load_dataset, get_metrics, LinearRegDiagnostic
 from dagstermill import define_dagstermill_asset
 import pandas as pd
 import numpy as np
@@ -153,6 +153,9 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
         y_pred = model.predict(X_test)
         metrics = get_metrics(y_test, y_pred)
         mlflow.log_metrics(metrics)
+        diagnosticPlotter = LinearRegDiagnostic(model)
+        diagnosticPlotter()
+        mlflow.log_artifact("./images/residual_plots.png")
         mlflow.end_run()
         metrics_all.append(metrics)
     metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}

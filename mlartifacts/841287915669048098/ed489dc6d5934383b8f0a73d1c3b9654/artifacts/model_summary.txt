@@ -1,0 +1,43 @@
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:                  Price   R-squared:                       0.888
+Model:                            OLS   Adj. R-squared:                  0.886
+Method:                 Least Squares   F-statistic:                     525.4
+Date:                Mon, 19 May 2025   Prob (F-statistic):               0.00
+Time:                        14:46:55   Log-Likelihood:                -9707.4
+No. Observations:                1146   AIC:                         1.945e+04
+Df Residuals:                    1128   BIC:                         1.954e+04
+Df Model:                          17                                         
+Covariance Type:            nonrobust                                         
+====================================================================================
+                       coef    std err          t      P>|t|      [0.025      0.975]
+------------------------------------------------------------------------------------
+const             9705.6365    955.489     10.158      0.000    7830.900    1.16e+04
+Age_08_04         -108.3810      3.246    -33.392      0.000    -114.749    -102.013
+KM                  -0.0172      0.001    -13.899      0.000      -0.020      -0.015
+HP                  29.6661      2.677     11.081      0.000      24.413      34.919
+Automatic          468.9742    158.910      2.951      0.003     157.181     780.767
+Doors              188.3733     38.749      4.861      0.000     112.345     264.402
+Gears              588.1560    181.364      3.243      0.001     232.308     944.004
+Quarterly_Tax       10.0096      1.192      8.394      0.000       7.670      12.349
+Mfr_Guarantee      220.6190     73.150      3.016      0.003      77.093     364.145
+Guarantee_Period    51.1177     13.062      3.913      0.000      25.489      76.747
+ABS               -249.2836     99.853     -2.497      0.013    -445.202     -53.365
+Airco              244.7802     89.938      2.722      0.007      68.316     421.244
+Automatic_airco   3091.8366    182.584     16.934      0.000    2733.593    3450.080
+CD_Player          345.6773     99.612      3.470      0.001     150.232     541.122
+Powered_Windows    286.8609     85.602      3.351      0.001     118.903     454.819
+Tow_Bar           -210.9117     79.889     -2.640      0.008    -367.660     -54.163
+m_comfort          813.1472    176.710      4.602      0.000     466.430    1159.865
+m_d4d             1369.5842    276.570      4.952      0.000     826.935    1912.233
+==============================================================================
+Omnibus:                       99.554   Durbin-Watson:                   1.775
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              360.723
+Skew:                           0.358   Prob(JB):                     4.68e-79
+Kurtosis:                       5.654   Cond. No.                     2.22e+06
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The condition number is large, 2.22e+06. This might indicate that there are
+strong multicollinearity or other numerical problems.

@@ -51,7 +51,13 @@ def ln_transform(map_strings: pd.DataFrame) -> pd.DataFrame:
 )
 def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
     ln_transform["cc"] = ln_transform["cc"].apply(lambda x: 1600 if x == 16000 else x)
-    columns = [] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
+    columns = [
+        {
+            "name": "Price",
+            "upper": 30000,
+            "lower": 0
+        },
+    ] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
     for col in columns:
         if col["lower"] is not None:
             ln_transform = ln_transform[ln_transform[col["name"]] >= col["lower"]]
@@ -70,7 +76,9 @@ def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
     columns = ["Model", "Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
                 "m_dsl", "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
                 "Power_Steering", "Backseat_Divider", "Radio", "Mfg_Year", "Mfg_Month", "m_life_months"
-                , "m_hatch_b", "m_liftb", "Petrol", "Diesel", "CNG", "m_g6", "m_vvti", "m_vvtli"]
+                ,"m_hatch_b", "m_liftb", "Petrol", "Diesel", "CNG", "m_g6", "m_vvti", "m_vvtli",
+                "m_airco", "m_terra", "m_wagon", "m_luna", "m_sol", "Mistlamps", "valve", "m_sedan", "Sport_Model", "Metallic_Rim",
+                "BOVAG_Guarantee", "Boardcomputer", "Weight", "cc", "m_comfort", "m_d4d", "Airco"]
     toyota = toyota_cut.drop(columns, axis=1)
     return toyota
 

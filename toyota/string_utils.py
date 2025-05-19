@@ -153,17 +153,15 @@ def infer_new_model_columns(df):
         term = word[0]
         df[f"m_{term.lower()}"] = df['Model'].apply(lambda x: 1 if term in x else 0)  
 
-    # # Simplificamos el TIPO DE TRANSMISION
-    # def get_m_trans(row):
-    #     if row['m_matic'] == 1:
-    #         return 1
-    #     elif row['m_matic3'] == 1:
-    #         return 2
-    #     elif row['m_matic4'] == 1:
-    #         return 3
-    #     else:
-    #         return 0
+     # Simplificamos el TIPO DE TRANSMISION
+    def get_m_trans(row):
+         if row['m_vvti'] == 1 or row['m_vvtli'] == 1:
+             return 1
+         else:
+             return 0
 
+
+    df["valve"] = df.apply(get_m_trans, axis=1)
     cols_to_drop = [
         'm_6', 'm_v', 'm_r', 
         'm_bns', 'm_exec', 'm_gtsi',

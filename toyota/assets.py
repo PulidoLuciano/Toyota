@@ -69,7 +69,8 @@ def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
 def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
     columns = ["Model", "Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
                 "m_dsl", "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
-                "Power_Steering", "Backseat_Divider", "Radio"]
+                "Power_Steering", "Backseat_Divider", "Radio", "Mfg_Year", "Mfg_Month", "m_life_months"
+                , "m_hatch_b", "m_liftb", "Petrol", "Diesel", "CNG", "m_g6", "m_vvti", "m_vvtli"]
     toyota = toyota_cut.drop(columns, axis=1)
     return toyota
 

@@ -50,6 +50,7 @@ def ln_transform(map_strings: pd.DataFrame) -> pd.DataFrame:
     group_name="data_preprocessing",
 )
 def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
+    df["cc"] = df["cc"].apply(lambda x: 1600 if x == 16000 else x)
     columns = [] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
     for col in columns:
         if col["lower"] is not None:
@@ -66,7 +67,9 @@ def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
-    columns = ["Model", "Id", "Cylinders"]
+    columns = ["Model", "Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
+                "m_dsl", "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
+                "Power_Steering", "Backseat_Divider", "Radio"]
     toyota = toyota_cut.drop(columns, axis=1)
     return toyota
 

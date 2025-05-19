@@ -124,9 +124,14 @@ def apply_string_treatments(df, cols):
         df['Model'] = df['Model'].str.replace('B.EDITION', ' B_ED ')
         df['Model'] = df['Model'].str.replace(' / ', ' ')
 
-    if "Fuel_Type" in cols:
-        df["Fuel_Type"] = df["Fuel_Type"].map({"Petrol": 0, "Diesel": 1, "CNG": 2})
         
+    # Dummy variables for Fuel_Type
+    if "Fuel_Type" in cols:
+        df["Petrol"] = df["Fuel_Type"].apply(lambda x: 1 if x == "Petrol" else 0)
+        df["Diesel"] = df["Fuel_Type"].apply(lambda x: 1 if x == "Diesel" else 0)
+        df["CNG"] = df["Fuel_Type"].apply(lambda x: 1 if x == "CNG" else 0)
+        df.drop("Fuel_Type", axis=1, inplace=True)
+    
     return df
 
 def infer_new_model_columns(df):

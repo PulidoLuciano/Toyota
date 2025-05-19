@@ -1,0 +1,19 @@
+artifact_path: model
+flavors:
+  python_function:
+    data: model.statsmodels
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.statsmodels
+    python_version: 3.11.12
+  statsmodels:
+    code: null
+    data: model.statsmodels
+    statsmodels_version: 0.14.4
+mlflow_version: 2.22.0
+model_size_bytes: 1440046
+model_uuid: be0e651619ab4cdead02b4ebff4457f2
+prompts: null
+run_id: c63bd4d5173b4867b78bc66b9711b3dc
+utc_time_created: '2025-05-19 14:03:22.609152'

@@ -66,7 +66,7 @@ def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
-    columns = ["Model"]
+    columns = ["Model", "Id", "Cylinders"]
     toyota = toyota_cut.drop(columns, axis=1)
     return toyota
 
@@ -185,5 +185,25 @@ toyota_clean_eda_notebook = define_dagstermill_asset(
     description="Exploratory data analysis of the cleaned Toyota dataset",
     ins={
         "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
+    }
+)
+
+ridge_selection_notebook = define_dagstermill_asset(
+    name="ridge_selection_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/ridge_selection.ipynb"),
+    group_name="model_training",
+    description="Ridge selection of the best model",
+    ins={
+        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
+    }
+)
+
+lasso_selection_notebook = define_dagstermill_asset(
+    name="lasso_selection_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/lasso_selection.ipynb"),
+    group_name="model_training",
+    description="Lasso selection of the best model",
+    ins={
+        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
     }
 )

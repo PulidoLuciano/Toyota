@@ -1,3 +1,5 @@
+import datetime as dt
+
 def apply_string_treatments(df, cols):
     """
         Apply different string operations to clean/standarize the columns.
@@ -172,6 +174,14 @@ def infer_new_model_columns(df):
 
     df.drop([col for col in cols_to_drop if col in df.columns], axis=1, inplace=True)
 
+    df["m_mfg_date"] = df["Mfg_Year"].astype(str) + "-" + df["Mfg_Month"].astype(str).str.zfill(2) + "-01"
+    today = dt.datetime.today()
+    df["m_life_months"] = df["m_mfg_date"].map(
+        lambda x: (today - dt.datetime.strptime(x, "%Y-%m-%d")).days / 30.4375
+    )
+
+    df.drop(["m_mfg_date"], axis=1, inplace=True)
+    
     return df
 
 

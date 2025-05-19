@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold
 import statsmodels.api as sm
+from .string_utils import *
 
 @dg.multi_asset(
     description="Load necessary datasets",
@@ -27,7 +28,10 @@ def load_datasets():
 )
 def map_strings(toyota_df: pd.DataFrame) -> pd.DataFrame:
     toyota = toyota_df.copy()
-    toyota["Fuel_Type"] = toyota["Fuel_Type"].map({"Petrol": 0, "Diesel": 1, "CNG": 2})
+    
+    toyota = apply_string_treatments(toyota, ["Model", "Fuel_Type"])
+    toyota = infer_new_model_columns(toyota)
+    
     return toyota
 
 @dg.asset(

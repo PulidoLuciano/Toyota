@@ -146,23 +146,27 @@ def infer_new_model_columns(df):
         term = word[0]
         df[f"m_{term.lower()}"] = df['Model'].apply(lambda x: 1 if term in x else 0)  
 
-    # Simplificamos el TIPO DE TRANSMISION
-    def get_m_trans(row):
-        if row['m_matic'] == 1:
-            return 1
-        elif row['m_matic3'] == 1:
-            return 2
-        elif row['m_matic4'] == 1:
-            return 3
-        else:
-            return 0
+    # # Simplificamos el TIPO DE TRANSMISION
+    # def get_m_trans(row):
+    #     if row['m_matic'] == 1:
+    #         return 1
+    #     elif row['m_matic3'] == 1:
+    #         return 2
+    #     elif row['m_matic4'] == 1:
+    #         return 3
+    #     else:
+    #         return 0
 
-    df['m_trans'] = df.apply(get_m_trans, axis=1)
-    df.drop(["m_matic", "m_matic3", "m_matic4"], axis=1, inplace=True)
-    
-    cols_to_drop = ['m_6', 'm_v', 'm_r', 'm_so', 'm_keuze', 'm_occasions', 'm_s-uitvoering', 'm_mpv']
+    cols_to_drop = [
+        'm_6', 'm_v', 'm_r', 
+        'm_bns', 'm_exec', 'm_gtsi',
+        'm_verso', 'm_mpv', 'm_comm',
+        'm_gl', 'm_ll', 'm_nav', 'm_pk', 'm_so', 'm_xl',
+        'm_sw', 'm_b_ed', 'm_g3',
+        'm_keuze', 'm_uit', 'm_occasions', 'm_s-uitvoering']
+
     df.drop([col for col in cols_to_drop if col in df.columns], axis=1, inplace=True)
-    df.rename(columns={'m_uit': 'm_keuze_occ_uit', 'm_verso': 'm_mpv_verso'}, inplace=True)
+
     return df
 
 

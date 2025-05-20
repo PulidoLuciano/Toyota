@@ -31,7 +31,7 @@ def map_strings(toyota_df: pd.DataFrame) -> pd.DataFrame:
     
     toyota = apply_string_treatments(toyota, ["Model", "Fuel_Type"])
     toyota = infer_new_model_columns(toyota)
-    
+    toyota.drop("Model", axis=1, inplace=True)
     return toyota
 
 @dg.asset(
@@ -39,6 +39,7 @@ def map_strings(toyota_df: pd.DataFrame) -> pd.DataFrame:
     group_name="data_preprocessing",
 )
 def ln_transform(map_strings: pd.DataFrame) -> pd.DataFrame:
+    from sklearn.preprocessing import MinMaxScaler
     toyota = map_strings.copy()
     columns = []
     for col in columns:
@@ -57,6 +58,16 @@ def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
             "upper": 30000,
             "lower": 0
         },
+        {
+            "name": "Weight",
+            "upper": 1250,
+            "lower": 0
+        },
+        {
+            "name": "Guarantee_Period",
+            "upper": 15,
+            "lower": 0
+        }
     ] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
     for col in columns:
         if col["lower"] is not None:
@@ -73,12 +84,13 @@ def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
-    columns = ["Model", "Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
+    columns = ["Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
                 "m_dsl", "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
-                "Power_Steering", "Backseat_Divider", "Radio", "Mfg_Year", "Mfg_Month", "m_life_months"
-                ,"m_hatch_b", "m_liftb", "Petrol", "Diesel", "CNG", "m_g6", "m_vvti", "m_vvtli",
+                "Power_Steering", "Backseat_Divider", "Radio", "Mfg_Month", "m_life_months"
+                ,"m_hatch_b", "m_liftb", "Petrol", "Diesel", "m_g6", "m_vvti",
                 "m_airco", "m_terra", "m_wagon", "m_luna", "m_sol", "Mistlamps", "valve", "m_sedan", "Sport_Model", "Metallic_Rim",
-                "BOVAG_Guarantee", "Boardcomputer", "Weight", "cc", "m_comfort", "m_d4d", "Airco"]
+                "Boardcomputer", "cc", "Airco", "Tow_Bar", "Gears", "ABS", "CD_Player", "Automatic", 
+                "Mfr_Guarantee", "Doors", "Age_08_04", "m_d4d", "CNG", "m_comfort", "Quarterly_Tax"]
     toyota = toyota_cut.drop(columns, axis=1)
     return toyota
 
@@ -215,6 +227,16 @@ lasso_selection_notebook = define_dagstermill_asset(
     notebook_path= dg.file_relative_path(__file__, "./notebooks/lasso_selection.ipynb"),
     group_name="model_training",
     description="Lasso selection of the best model",
+    ins={
+        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
+    }
+)
+
+sequence_selection_notebook = define_dagstermill_asset(
+    name="sequence_selection_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/sequence_selection.ipynb"),
+    group_name="model_training",
+    description="Sequence selection of the best model",
     ins={
         "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
     }

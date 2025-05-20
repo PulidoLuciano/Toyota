@@ -1,0 +1,36 @@
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:                  Price   R-squared:                       0.887
+Model:                            OLS   Adj. R-squared:                  0.886
+Method:                 Least Squares   F-statistic:                     980.8
+Date:                Tue, 20 May 2025   Prob (F-statistic):               0.00
+Time:                        13:43:08   Log-Likelihood:                -9576.5
+No. Observations:                1138   AIC:                         1.917e+04
+Df Residuals:                    1128   BIC:                         1.922e+04
+Df Model:                           9                                         
+Covariance Type:            nonrobust                                         
+====================================================================================
+                       coef    std err          t      P>|t|      [0.025      0.975]
+------------------------------------------------------------------------------------
+const            -2.763e+06   6.08e+04    -45.435      0.000   -2.88e+06   -2.64e+06
+Mfg_Year          1382.1660     30.531     45.271      0.000    1322.262    1442.070
+KM                  -0.0182      0.001    -15.466      0.000      -0.020      -0.016
+HP                  14.9046      3.023      4.931      0.000       8.974      20.835
+Quarterly_Tax        6.9562      1.245      5.588      0.000       4.514       9.399
+Weight               7.1488      1.010      7.076      0.000       5.166       9.131
+BOVAG_Guarantee    492.3970    114.659      4.294      0.000     267.427     717.367
+Guarantee_Period    64.8511     11.584      5.598      0.000      42.122      87.580
+Automatic_airco   2552.1611    176.667     14.446      0.000    2205.528    2898.794
+Powered_Windows    577.6074     71.274      8.104      0.000     437.762     717.453
+m_vvtli                   0          0        nan        nan           0           0
+==============================================================================
+Omnibus:                       71.196   Durbin-Watson:                   1.741
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              288.689
+Skew:                          -0.075   Prob(JB):                     2.05e-63
+Kurtosis:                       5.463   Cond. No.                          inf
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The smallest eigenvalue is      0. This might indicate that there are
+strong multicollinearity problems or that the design matrix is singular.

@@ -1,0 +1,36 @@
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:                  Price   R-squared:                       0.882
+Model:                            OLS   Adj. R-squared:                  0.881
+Method:                 Least Squares   F-statistic:                     848.6
+Date:                Tue, 20 May 2025   Prob (F-statistic):               0.00
+Time:                        11:05:55   Log-Likelihood:                -9736.5
+No. Observations:                1146   AIC:                         1.949e+04
+Df Residuals:                    1135   BIC:                         1.955e+04
+Df Model:                          10                                         
+Covariance Type:            nonrobust                                         
+====================================================================================
+                       coef    std err          t      P>|t|      [0.025      0.975]
+------------------------------------------------------------------------------------
+const              1.27e+04    378.586     33.533      0.000     1.2e+04    1.34e+04
+Age_08_04         -112.7758      2.772    -40.686      0.000    -118.214    -107.337
+KM                  -0.0173      0.001    -13.988      0.000      -0.020      -0.015
+HP                  32.6147      2.619     12.453      0.000      27.476      37.753
+Doors              163.6693     38.044      4.302      0.000      89.025     238.314
+Quarterly_Tax       10.3043      1.206      8.541      0.000       7.937      12.671
+Guarantee_Period    42.3245     13.090      3.233      0.001      16.642      68.007
+Automatic_airco   3225.2280    184.483     17.483      0.000    2863.263    3587.193
+Powered_Windows    427.9356     77.129      5.548      0.000     276.605     579.266
+m_comfort          829.8474    179.289      4.629      0.000     478.072    1181.623
+m_d4d             1347.4812    281.126      4.793      0.000     795.897    1899.065
+==============================================================================
+Omnibus:                       71.298   Durbin-Watson:                   1.779
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              229.306
+Skew:                           0.236   Prob(JB):                     1.61e-50
+Kurtosis:                       5.140   Cond. No.                     8.55e+05
+==============================================================================
+
+Notes:
+[1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The condition number is large, 8.55e+05. This might indicate that there are
+strong multicollinearity or other numerical problems.

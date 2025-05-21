@@ -9,8 +9,8 @@ GRANT ALL PRIVILEGES ON SCHEMA public TO mlflow_user;
 ----------------------------
 
 CREATE DATABASE toyota_project;
-CREATE USER "Luciano.Pulido@alu.frt.utn.edu.ar" WITH ENCRYPTED PASSWORD 'airbyte';
-GRANT ALL PRIVILEGES ON DATABASE toyota_project TO "Luciano.Pulido@alu.frt.utn.edu.ar";
+CREATE USER "joessar" WITH ENCRYPTED PASSWORD 'airbyte';
+GRANT ALL PRIVILEGES ON DATABASE toyota_project TO "joessar";
 \c toyota_project;
-GRANT ALL PRIVILEGES ON SCHEMA public TO "Luciano.Pulido@alu.frt.utn.edu.ar";
-GRANT USAGE ON SCHEMA public TO "Luciano.Pulido@alu.frt.edu.ar";
+GRANT ALL PRIVILEGES ON SCHEMA public TO "joessar";
+GRANT USAGE ON SCHEMA public TO "joessar";

@@ -31,59 +31,74 @@ def map_strings(toyota_df: pd.DataFrame) -> pd.DataFrame:
     
     toyota = apply_string_treatments(toyota, ["Model", "Fuel_Type"])
     toyota = infer_new_model_columns(toyota)
-    toyota.drop("Model", axis=1, inplace=True)
-    return toyota
-
-@dg.asset(
-    description="Apply ln transformation to the dataset",
-    group_name="data_preprocessing",
-)
-def ln_transform(map_strings: pd.DataFrame) -> pd.DataFrame:
-    from sklearn.preprocessing import MinMaxScaler
-    toyota = map_strings.copy()
-    columns = []
-    for col in columns:
-        toyota[col] = np.log(toyota[col])
+    toyota.drop(columns=["Model"], axis=1, inplace=True)
     return toyota
 
 @dg.asset(
     description="Cut instances from lower and upper bounds in feature selected",
     group_name="data_preprocessing",
 )
-def toyota_cut(ln_transform: pd.DataFrame) -> pd.DataFrame:
-    ln_transform["cc"] = ln_transform["cc"].apply(lambda x: 1600 if x == 16000 else x)
+def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
+    toyota = map_strings.copy()
+    #ln_transform["cc"] = ln_transform["cc"].apply(lambda x: 1600 if x == 16000 else x)
     columns = [
-        {
-            "name": "Price",
-            "upper": 30000,
-            "lower": 0
-        },
-        {
-            "name": "Weight",
-            "upper": 1250,
-            "lower": 0
-        },
-        {
-            "name": "Guarantee_Period",
-            "upper": 15,
-            "lower": 0
-        }
+        #{
+        #    "name": "Price",
+        #    "upper": 30000,
+        #    "lower": 0
+        #},
+        #{
+        #    "name": "Weight",
+        #    "upper": 1250,
+        #    "lower": 0
+        #},
+        #{
+        #    "name": "Guarantee_Period",
+        #    "upper": 15,
+        #    "lower": 0
+        #}
     ] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
     for col in columns:
         if col["lower"] is not None:
-            ln_transform = ln_transform[ln_transform[col["name"]] >= col["lower"]]
+            toyota = toyota[toyota[col["name"]] >= col["lower"]]
         if col["upper"] is not None:
-            ln_transform = ln_transform[ln_transform[col["name"]] <= col["upper"]]
-    return ln_transform
+            toyota = toyota[toyota[col["name"]] <= col["upper"]]
+    return toyota
 
 @dg.asset(
-    description="Delete features from the dataset",
+    description="Scale the dataset",
     group_name="data_preprocessing",
     ins={
         "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
     },
 )
-def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
+def toyota_scale(toyota_cut: pd.DataFrame) -> pd.DataFrame:
+    #from sklearn.preprocessing import MinMaxScaler
+    #toyota = toyota_cut.drop(columns=["Price"], axis=1)
+    #scaler = MinMaxScaler()
+    #toyota = scaler.fit_transform(toyota)
+    #toyota = pd.DataFrame(toyota, columns=toyota.columns)
+    #toyota["Price"] = toyota_cut["Price"]
+    return toyota_cut
+
+@dg.asset(
+    description="Apply ln transformation to the dataset",
+    group_name="data_preprocessing",
+)
+def ln_transform(toyota_scale: pd.DataFrame) -> pd.DataFrame:
+    columns = []
+    for col in columns:
+        toyota_scale[col] = np.log(toyota_scale[col])
+    return toyota_scale
+
+@dg.asset(
+    description="Delete features from the dataset",
+    group_name="data_preprocessing",
+    ins={
+        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+    },
+)
+def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
     columns = ["Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
                 "m_dsl", "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
                 "Power_Steering", "Backseat_Divider", "Radio", "Mfg_Month", "m_life_months"
@@ -91,7 +106,7 @@ def toyota_clean(toyota_cut: pd.DataFrame) -> pd.DataFrame:
                 "m_airco", "m_terra", "m_wagon", "m_luna", "m_sol", "Mistlamps", "valve", "m_sedan", "Sport_Model", "Metallic_Rim",
                 "Boardcomputer", "cc", "Airco", "Tow_Bar", "Gears", "ABS", "CD_Player", "Automatic", 
                 "Mfr_Guarantee", "Doors", "Age_08_04", "m_d4d", "CNG", "m_comfort", "Quarterly_Tax"]
-    toyota = toyota_cut.drop(columns, axis=1)
+    toyota = ln_transform.drop(columns, axis=1)
     return toyota
 
 @dg.multi_asset(
@@ -208,7 +223,7 @@ toyota_clean_eda_notebook = define_dagstermill_asset(
     group_name="exploratory_data_analysis",
     description="Exploratory data analysis of the cleaned Toyota dataset",
     ins={
-        "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
+        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
     }
 )
 
@@ -218,7 +233,7 @@ ridge_selection_notebook = define_dagstermill_asset(
     group_name="model_training",
     description="Ridge selection of the best model",
     ins={
-        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
+        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     }
 )
 
@@ -228,7 +243,7 @@ lasso_selection_notebook = define_dagstermill_asset(
     group_name="model_training",
     description="Lasso selection of the best model",
     ins={
-        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
+        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     }
 )
 
@@ -238,6 +253,6 @@ sequence_selection_notebook = define_dagstermill_asset(
     group_name="model_training",
     description="Sequence selection of the best model",
     ins={
-        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
+        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     }
 )

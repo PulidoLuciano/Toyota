@@ -73,13 +73,14 @@ def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_scale(toyota_cut: pd.DataFrame) -> pd.DataFrame:
-    #from sklearn.preprocessing import MinMaxScaler
-    #toyota = toyota_cut.drop(columns=["Price"], axis=1)
-    #scaler = MinMaxScaler()
-    #toyota = scaler.fit_transform(toyota)
-    #toyota = pd.DataFrame(toyota, columns=toyota.columns)
-    #toyota["Price"] = toyota_cut["Price"]
-    return toyota_cut
+    from sklearn.preprocessing import MinMaxScaler
+    toyota = toyota_cut.drop(columns=["Price"], axis=1)
+    columns = toyota.columns
+    scaler = MinMaxScaler()
+    toyota = scaler.fit_transform(toyota)
+    toyota = pd.DataFrame(toyota, columns=columns)
+    toyota["Price"] = toyota_cut["Price"]
+    return toyota
 
 @dg.asset(
     description="Apply ln transformation to the dataset",
@@ -252,6 +253,16 @@ sequence_selection_notebook = define_dagstermill_asset(
     notebook_path= dg.file_relative_path(__file__, "./notebooks/sequence_selection.ipynb"),
     group_name="model_training",
     description="Sequence selection of the best model",
+    ins={
+        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+    }
+)
+
+pca_notebook = define_dagstermill_asset(
+    name="pca_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/pca.ipynb"),
+    group_name="model_training",
+    description="PCA of the dataset",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     }

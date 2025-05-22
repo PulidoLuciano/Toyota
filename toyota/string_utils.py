@@ -162,16 +162,19 @@ def infer_new_model_columns(df):
 
 
     df["valve"] = df.apply(get_m_trans, axis=1)
-    cols_to_drop = [
-        'm_6', 'm_v', 'm_r', 
-        'm_bns', 'm_exec', 'm_gtsi',
-        'm_verso', 'm_mpv', 'm_comm',
-        'm_gl', 'm_ll', 'm_nav', 'm_pk', 'm_so', 'm_xl',
-        'm_sw', 'm_b_ed', 'm_g3',
-        'm_keuze', 'm_uit', 'm_occasions', 'm_s-uitvoering']
+    # cols_to_drop = [
+    #     'm_6', 'm_v', 'm_r', 
+    #     'm_bns', 'm_exec', 'm_gtsi',
+    #     'm_verso', 'm_mpv', 'm_comm',
+    #     'm_gl', 'm_ll', 'm_nav', 'm_pk', 'm_so', 'm_xl',
+    #     'm_sw', 'm_b_ed', 'm_g3',
+    #     'm_keuze', 'm_uit', 'm_occasions', 'm_s-uitvoering']
 
+    # df.drop([col for col in cols_to_drop if col in df.columns], axis=1, inplace=True)
+    cols_to_drop = ['m_6', 'm_v', 'm_r', 'm_so', 'm_keuze', 'm_occasions', 'm_s-uitvoering', 'm_mpv']
     df.drop([col for col in cols_to_drop if col in df.columns], axis=1, inplace=True)
-
+    df.rename(columns={'m_uit': 'm_keuze_occ_uit', 'm_verso': 'm_mpv_verso'}, inplace=True)
+    
     df["m_mfg_date"] = df["Mfg_Year"].astype(str) + "-" + df["Mfg_Month"].astype(str).str.zfill(2) + "-01"
     today = dt.datetime.today()
     df["m_life_months"] = df["m_mfg_date"].map(

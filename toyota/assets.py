@@ -4,6 +4,7 @@ from dagstermill import define_dagstermill_asset
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
 from .string_utils import *
 
@@ -17,7 +18,7 @@ from .string_utils import *
         ),
     },
 )
-def load_datasets():
+def load_datasets() -> pd.DataFrame:
     toyota_df = load_dataset("https://raw.githubusercontent.com/dodobeatle/dataeng-datos/refs/heads/main/ToyotaCorolla.csv")
     return toyota_df
     
@@ -42,21 +43,21 @@ def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
     toyota = map_strings.copy()
     #ln_transform["cc"] = ln_transform["cc"].apply(lambda x: 1600 if x == 16000 else x)
     columns = [
-        #{
+        # {
         #    "name": "Price",
         #    "upper": 30000,
         #    "lower": 0
-        #},
-        #{
+        # },
+        # {
         #    "name": "Weight",
         #    "upper": 1250,
         #    "lower": 0
-        #},
-        #{
+        # },
+        # {
         #    "name": "Guarantee_Period",
         #    "upper": 15,
         #    "lower": 0
-        #}
+        # }
     ] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
     for col in columns:
         if col["lower"] is not None:
@@ -73,13 +74,13 @@ def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_scale(toyota_cut: pd.DataFrame) -> pd.DataFrame:
-    from sklearn.preprocessing import MinMaxScaler
-    toyota = toyota_cut.drop(columns=["Price"], axis=1)
-    columns = toyota.columns
-    scaler = MinMaxScaler()
-    toyota = scaler.fit_transform(toyota)
-    toyota = pd.DataFrame(toyota, columns=columns)
-    toyota["Price"] = toyota_cut["Price"]
+    # from sklearn.preprocessing import MinMaxScaler
+    # toyota = toyota_cut.drop(columns=["Price"], axis=1)
+    # columns = toyota.columns
+    # scaler = MinMaxScaler()
+    # toyota = scaler.fit_transform(toyota)
+    # toyota = pd.DataFrame(toyota, columns=columns)
+    # toyota["Price"] = toyota_cut["Price"]
     return toyota
 
 @dg.asset(

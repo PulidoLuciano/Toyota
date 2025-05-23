@@ -41,29 +41,11 @@ def map_strings(toyota_df: pd.DataFrame) -> pd.DataFrame:
 )
 def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
     toyota = map_strings.copy()
-    #ln_transform["cc"] = ln_transform["cc"].apply(lambda x: 1600 if x == 16000 else x)
-    columns = [
-        # {
-        #    "name": "Price",
-        #    "upper": 30000,
-        #    "lower": 0
-        # },
-        # {
-        #    "name": "Weight",
-        #    "upper": 1250,
-        #    "lower": 0
-        # },
-        # {
-        #    "name": "Guarantee_Period",
-        #    "upper": 15,
-        #    "lower": 0
-        # }
-    ] # {name: <name>, lower: <lower_bound>, upper: <upper_bound>}
-    for col in columns:
-        if col["lower"] is not None:
-            toyota = toyota[toyota[col["name"]] >= col["lower"]]
-        if col["upper"] is not None:
-            toyota = toyota[toyota[col["name"]] <= col["upper"]]
+    toyota = toyota[toyota["cc"] != 16000]
+    toyota = toyota[toyota["m_mpv_verso"] != 1]
+    toyota.loc[(toyota["m_terra"] == 1) & ((toyota["m_comfort"] == 1) | (toyota["m_sedan"] == 1)), "m_terra"] = 0
+    toyota.drop(columns=["Id", "Cylinders", "Petrol", "m_life_months", "Mfg_Month", "Radio_cassette", "Age_08_04", "m_matic", "m_dsl", "m_airco", "valve", "m_mpv_verso",
+    "m_keuze_occ_uit", "m_g3", "m_b_ed", "m_sw", "m_xl", "m_pk", "m_nav", "m_ll", "m_gl", "m_comm"], inplace=True)
     return toyota
 
 @dg.asset(
@@ -74,24 +56,27 @@ def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_scale(toyota_cut: pd.DataFrame) -> pd.DataFrame:
-    # from sklearn.preprocessing import MinMaxScaler
-    # toyota = toyota_cut.drop(columns=["Price"], axis=1)
-    # columns = toyota.columns
-    # scaler = MinMaxScaler()
-    # toyota = scaler.fit_transform(toyota)
-    # toyota = pd.DataFrame(toyota, columns=columns)
-    # toyota["Price"] = toyota_cut["Price"]
-    return toyota
+    from sklearn.preprocessing import MinMaxScaler
+    scaler = MinMaxScaler()
+    toyota_normalized = toyota_cut.copy()
+    columns = toyota_normalized.columns
+    toyota_normalized[columns] = scaler.fit_transform(toyota_normalized[columns])
+    toyota_normalized["Price"] = toyota_cut["Price"]
+    toyota_normalized = pd.DataFrame(toyota_normalized, columns=columns)
+    return toyota_normalized
+
 
 @dg.asset(
     description="Apply ln transformation to the dataset",
     group_name="data_preprocessing",
 )
 def ln_transform(toyota_scale: pd.DataFrame) -> pd.DataFrame:
-    columns = []
-    for col in columns:
-        toyota_scale[col] = np.log(toyota_scale[col])
-    return toyota_scale
+    toyota_transformed = toyota_scale.copy()
+    toyota_transformed['KM'] = np.log(toyota_transformed['KM']+1)
+    toyota_transformed['KM'] = np.sqrt(toyota_transformed['KM'])
+    toyota_transformed['Weight'] = np.log(toyota_transformed['Weight']+1)
+    toyota_transformed['Weight'] = np.sqrt(toyota_transformed['Weight'])
+    return toyota_transformed
 
 @dg.asset(
     description="Delete features from the dataset",
@@ -101,13 +86,13 @@ def ln_transform(toyota_scale: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
-    columns = ["Id", "Cylinders", "m_matic", "m_matic3", "m_matic4", "Radio_cassette",
-                "m_dsl", "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
-                "Power_Steering", "Backseat_Divider", "Radio", "Mfg_Month", "m_life_months"
-                ,"m_hatch_b", "m_liftb", "Petrol", "Diesel", "m_g6", "m_vvti",
-                "m_airco", "m_terra", "m_wagon", "m_luna", "m_sol", "Mistlamps", "valve", "m_sedan", "Sport_Model", "Metallic_Rim",
+    columns = [ "m_matic3", "m_matic4",
+                "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
+                "Power_Steering", "Backseat_Divider", "Radio",
+                "m_hatch_b", "m_liftb", "Diesel", "m_g6", "m_vvti",
+                "m_terra", "m_wagon", "m_luna", "m_sol", "Mistlamps", "m_sedan", "Sport_Model", "Metallic_Rim",
                 "Boardcomputer", "cc", "Airco", "Tow_Bar", "Gears", "ABS", "CD_Player", "Automatic", 
-                "Mfr_Guarantee", "Doors", "Age_08_04", "m_d4d", "CNG", "m_comfort", "Quarterly_Tax"]
+                "Mfr_Guarantee", "Doors", "m_d4d", "CNG", "m_comfort", "Quarterly_Tax", "m_gtsi", "m_bns"]
     toyota = ln_transform.drop(columns, axis=1)
     return toyota
 
@@ -266,5 +251,15 @@ pca_notebook = define_dagstermill_asset(
     description="PCA of the dataset",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+    }
+)
+
+first_data_cleaning_notebook = define_dagstermill_asset(
+    name="first_data_cleaning_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/first_data_cleaning.ipynb"),
+    group_name="data_preprocessing",
+    description="First data cleaning of the dataset",
+    ins={
+        "map_strings": dg.AssetIn(key=dg.AssetKey("map_strings")),
     }
 )

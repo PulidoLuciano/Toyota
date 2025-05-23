@@ -197,27 +197,17 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_strings.ipynb"),
-    group_name="exploratory_data_analysis",
+    group_name="notebook",
     description="Strings analysis of the Toyota dataset",
     ins={
         "toyota_df": dg.AssetIn(key=dg.AssetKey("toyota_df")),
     }
 )
 
-toyota_clean_eda_notebook = define_dagstermill_asset(
-    name="toyota_clean_eda_notebook",
-    notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_clean_eda.ipynb"),
-    group_name="exploratory_data_analysis",
-    description="Exploratory data analysis of the cleaned Toyota dataset",
-    ins={
-        "toyota_cut": dg.AssetIn(key=dg.AssetKey("toyota_cut")),
-    }
-)
-
 ridge_selection_notebook = define_dagstermill_asset(
     name="ridge_selection_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/ridge_selection.ipynb"),
-    group_name="model_training",
+    group_name="notebook",
     description="Ridge selection of the best model",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
@@ -227,7 +217,7 @@ ridge_selection_notebook = define_dagstermill_asset(
 lasso_selection_notebook = define_dagstermill_asset(
     name="lasso_selection_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/lasso_selection.ipynb"),
-    group_name="model_training",
+    group_name="notebook",
     description="Lasso selection of the best model",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
@@ -237,7 +227,7 @@ lasso_selection_notebook = define_dagstermill_asset(
 sequence_selection_notebook = define_dagstermill_asset(
     name="sequence_selection_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/sequence_selection.ipynb"),
-    group_name="model_training",
+    group_name="notebook",
     description="Sequence selection of the best model",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
@@ -247,7 +237,7 @@ sequence_selection_notebook = define_dagstermill_asset(
 pca_notebook = define_dagstermill_asset(
     name="pca_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/pca.ipynb"),
-    group_name="model_training",
+    group_name="notebook",
     description="PCA of the dataset",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
@@ -257,7 +247,7 @@ pca_notebook = define_dagstermill_asset(
 first_data_cleaning_notebook = define_dagstermill_asset(
     name="first_data_cleaning_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/first_data_cleaning.ipynb"),
-    group_name="data_preprocessing",
+    group_name="notebook",
     description="First data cleaning of the dataset",
     ins={
         "map_strings": dg.AssetIn(key=dg.AssetKey("map_strings")),

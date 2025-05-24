@@ -32,7 +32,7 @@ def map_strings(toyota_df: pd.DataFrame) -> pd.DataFrame:
     
     toyota = apply_string_treatments(toyota, ["Model", "Fuel_Type"])
     toyota = infer_new_model_columns(toyota)
-    toyota.drop(columns=["Model"], axis=1, inplace=True)
+    toyota.drop(columns=["Model", "Fuel_Type"], axis=1, inplace=True)
     return toyota
 
 @dg.asset(
@@ -86,13 +86,9 @@ def ln_transform(toyota_scale: pd.DataFrame) -> pd.DataFrame:
     },
 )
 def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
-    columns = [ "m_matic3", "m_matic4",
-                "m_sport", "m_16v", "Central_Lock", "Met_Color", "Airbag_1", "Airbag_2", 
-                "Power_Steering", "Backseat_Divider", "Radio",
-                "m_hatch_b", "m_liftb", "Diesel", "m_g6", "m_vvti",
-                "m_terra", "m_wagon", "m_luna", "m_sol", "Mistlamps", "m_sedan", "Sport_Model", "Metallic_Rim",
-                "Boardcomputer", "cc", "Airco", "Tow_Bar", "Gears", "ABS", "CD_Player", "Automatic", 
-                "Mfr_Guarantee", "Doors", "m_d4d", "CNG", "m_comfort", "Quarterly_Tax", "m_gtsi", "m_bns"]
+    columns = ["Central_Lock", "Met_Color", "Airbag_2", "ABS", "Backseat_Divider", "Metallic_Rim", "Radio", "Diesel", "Airbag_1", "Sport_Model", "m_16v", "m_vvti", "Automatic",
+               "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "Doors", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
+               "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d"]
     toyota = ln_transform.drop(columns, axis=1)
     return toyota
 
@@ -251,5 +247,15 @@ first_data_cleaning_notebook = define_dagstermill_asset(
     description="First data cleaning of the dataset",
     ins={
         "map_strings": dg.AssetIn(key=dg.AssetKey("map_strings")),
+    }
+)
+
+manual_feature_selection_notebook = define_dagstermill_asset(
+    name="manual_feature_selection_notebook",
+    notebook_path= dg.file_relative_path(__file__, "./notebooks/manual_feature_selection.ipynb"),
+    group_name="notebook",
+    description="Manual feature selection of the dataset",
+    ins={
+        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     }
 )

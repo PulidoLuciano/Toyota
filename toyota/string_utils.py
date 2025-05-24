@@ -132,7 +132,6 @@ def apply_string_treatments(df, cols):
         df["Petrol"] = df["Fuel_Type"].apply(lambda x: 1 if x == "Petrol" else 0)
         df["Diesel"] = df["Fuel_Type"].apply(lambda x: 1 if x == "Diesel" else 0)
         df["CNG"] = df["Fuel_Type"].apply(lambda x: 1 if x == "CNG" else 0)
-        df.drop("Fuel_Type", axis=1, inplace=True)
     
     return df
 

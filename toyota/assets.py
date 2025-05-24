@@ -90,6 +90,19 @@ def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
                "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "Doors", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
                "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d"]
     toyota = ln_transform.drop(columns, axis=1)
+    outliers_remove_idx = [
+        # Run 1
+        138,  523, 1058,  601,  141,  171,  147,  221,  192,  393,  166,  191,
+        # Run 2
+        588, 351, 189, 53, 184, 186, 696, 960, 11, 223, 402, 12, 1435,
+        # Run 3
+        7, 8, 161, 10, 179, 379, 618, 378, 125, 913,
+        # Run 4
+        77, 120, 146, 154, 1109, 1047, 119, 13, 185, 796, 380, 115, 237, 187, 68,
+
+        # El modelo no mejora en runs posteriores.
+    ]
+    toyota = toyota.drop(outliers_remove_idx)
     return toyota
 
 @dg.multi_asset(

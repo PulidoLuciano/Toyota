@@ -116,6 +116,12 @@ class LinearRegDiagnostic():
         self.nparams = len(self.results.params)
         self.nresids = len(self.residual_norm)
 
+        # Properties to store outlier rows for each plot
+        self.residuals_vs_fitted_outliers = None
+        self.qq_plot_outliers = None
+        self.scale_location_outliers = None
+        self.leverage_plot_outliers = None
+
     def __call__(self, plot_context='seaborn-v0_8-paper', **kwargs):
         # print(plt.style.available)
         # GH#9157
@@ -135,12 +141,14 @@ class LinearRegDiagnostic():
             fig.savefig("./images/residual_plots.png")
         return fig, ax,
 
-    def residual_plot(self, ax=None):
+    def residual_plot(self, ax=None, show_outliers=True):
         """
         Residual vs Fitted Plot
 
         Graphical tool to identify non-linearity.
         (Roughly) Horizontal red line is an indicator that the residual has a linear pattern
+
+        If show_outliers is True, stores the full rows of the top 3 outliers in self.residuals_vs_fitted_outliers.
         """
         if ax is None:
             fig, ax = plt.subplots()
@@ -157,23 +165,32 @@ class LinearRegDiagnostic():
         residual_abs = np.abs(self.residual)
         abs_resid = np.flip(np.argsort(residual_abs), 0)
         abs_resid_top_3 = abs_resid[:3]
+        outliers = []
         for i in abs_resid_top_3:
+            outliers.append(self.xvar[i])
             ax.annotate(
                 i,
                 xy=(self.y_predict[i], self.residual[i]),
                 color='C3')
+
+        if show_outliers:
+            self.residuals_vs_fitted_outliers = outliers
+        else:
+            self.residuals_vs_fitted_outliers = None
 
         ax.set_title('Residuals vs Fitted', fontweight="bold")
         ax.set_xlabel('Fitted values')
         ax.set_ylabel('Residuals')
         return ax
 
-    def qq_plot(self, ax=None):
+    def qq_plot(self, ax=None, show_outliers=True):
         """
         Standarized Residual vs Theoretical Quantile plot
 
         Used to visually check if residuals are normally distributed.
         Points spread along the diagonal line will suggest so.
+
+        If show_outliers is True, stores the full rows of the top 3 outliers in self.qq_plot_outliers.
         """
         if ax is None:
             fig, ax = plt.subplots()
@@ -184,24 +201,33 @@ class LinearRegDiagnostic():
         # annotations
         abs_norm_resid = np.flip(np.argsort(np.abs(self.residual_norm)), 0)
         abs_norm_resid_top_3 = abs_norm_resid[:3]
+        outliers = []
         for i, x, y in self.__qq_top_resid(QQ.theoretical_quantiles, abs_norm_resid_top_3):
+            outliers.append(self.xvar[i])
             ax.annotate(
                 i,
                 xy=(x, y),
                 ha='right',
                 color='C3')
 
+        if show_outliers:
+            self.qq_plot_outliers = outliers
+        else:
+            self.qq_plot_outliers = None
+
         ax.set_title('Normal Q-Q', fontweight="bold")
         ax.set_xlabel('Theoretical Quantiles')
         ax.set_ylabel('Standardized Residuals')
         return ax
 
-    def scale_location_plot(self, ax=None):
+    def scale_location_plot(self, ax=None, show_outliers=True):
         """
         Sqrt(Standarized Residual) vs Fitted values plot
 
         Used to check homoscedasticity of the residuals.
         Horizontal line will suggest so.
+
+        If show_outliers is True, stores the full rows of the top 3 outliers in self.scale_location_outliers.
         """
         if ax is None:
             fig, ax = plt.subplots()
@@ -220,24 +246,33 @@ class LinearRegDiagnostic():
         # annotations
         abs_sq_norm_resid = np.flip(np.argsort(residual_norm_abs_sqrt), 0)
         abs_sq_norm_resid_top_3 = abs_sq_norm_resid[:3]
+        outliers = []
         for i in abs_sq_norm_resid_top_3:
+            outliers.append(self.xvar[i])
             ax.annotate(
                 i,
                 xy=(self.y_predict[i], residual_norm_abs_sqrt[i]),
                 color='C3')
+
+        if show_outliers:
+            self.scale_location_outliers = outliers
+        else:
+            self.scale_location_outliers = None
 
         ax.set_title('Scale-Location', fontweight="bold")
         ax.set_xlabel('Fitted values')
         ax.set_ylabel(r'$\sqrt{|\mathrm{Standardized\ Residuals}|}$');
         return ax
 
-    def leverage_plot(self, ax=None, high_leverage_threshold=False, cooks_threshold='baseR'):
+    def leverage_plot(self, ax=None, high_leverage_threshold=False, cooks_threshold='baseR', show_outliers=True):
         """
         Residual vs Leverage plot
 
         Points falling outside Cook's distance curves are considered observation that can sway the fit
         aka are influential.
         Good to have none outside the curves.
+
+        If show_outliers is True, stores the full rows of the top 3 outliers in self.leverage_plot_outliers.
         """
         if ax is None:
             fig, ax = plt.subplots()
@@ -258,11 +293,18 @@ class LinearRegDiagnostic():
 
         # annotations
         leverage_top_3 = np.flip(np.argsort(self.cooks_distance), 0)[:3]
+        outliers = []
         for i in leverage_top_3:
+            outliers.append(self.xvar[i])
             ax.annotate(
                 i,
                 xy=(self.leverage[i], self.residual_norm[i]),
                 color = 'C3')
+
+        if show_outliers:
+            self.leverage_plot_outliers = outliers
+        else:
+            self.leverage_plot_outliers = None
 
         factors = []
         if cooks_threshold == 'baseR' or cooks_threshold is None:

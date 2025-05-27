@@ -79,17 +79,14 @@ def ln_transform(toyota_scale: pd.DataFrame) -> pd.DataFrame:
     return toyota_transformed
 
 @dg.asset(
-    description="Delete features from the dataset",
+    description="Cut outliers from the dataset",
     group_name="data_preprocessing",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     },
 )
-def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
-    columns = ["Central_Lock", "Met_Color", "Airbag_2", "ABS", "Backseat_Divider", "Metallic_Rim", "Radio", "Diesel", "Airbag_1", "Sport_Model", "m_16v", "m_vvti", "Automatic",
-               "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "Doors", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
-               "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d"]
-    toyota = ln_transform.drop(columns, axis=1)
+def cut_outliers(ln_transform: pd.DataFrame) -> pd.DataFrame:
+    toyota_transformed = ln_transform.copy()
     outliers_remove_idx = [
         # Run 1
         138,  523, 1058,  601,  141,  171,  147,  221,  192,  393,  166,  191,
@@ -102,7 +99,21 @@ def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
 
         # El modelo no mejora en runs posteriores.
     ]
-    toyota = toyota.drop(outliers_remove_idx)
+    toyota_transformed = toyota_transformed.drop(outliers_remove_idx)
+    return toyota_transformed
+
+@dg.asset(
+    description="Delete features from the dataset",
+    group_name="manual_feature_selection",
+    ins={
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+    },
+)
+def toyota_clean(cut_outliers: pd.DataFrame) -> pd.DataFrame:
+    columns = ["Central_Lock", "Met_Color", "Airbag_2", "ABS", "Backseat_Divider", "Metallic_Rim", "Radio", "Diesel", "Airbag_1", "Sport_Model", "m_16v", "m_vvti", "Automatic",
+               "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "Doors", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
+               "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d"]
+    toyota = cut_outliers.drop(columns, axis=1)
     return toyota
 
 @dg.multi_asset(
@@ -120,14 +131,14 @@ def toyota_clean(ln_transform: pd.DataFrame) -> pd.DataFrame:
     },
     required_resource_keys={"mlflow"},
 )
-def split_folds(context: dg.AssetExecutionContext, toyota_clean: pd.DataFrame):
+def split_folds(context: dg.AssetExecutionContext, cut_outliers: pd.DataFrame):
     split_params = {
         "n_splits": 5,
         "random_state": 42,
         "shuffle": True,
     }
     kf = KFold(**split_params)
-    folds = kf.split(toyota_clean)
+    folds = kf.split(cut_outliers)
 
     train_indexes = []
     test_indexes = []
@@ -137,15 +148,13 @@ def split_folds(context: dg.AssetExecutionContext, toyota_clean: pd.DataFrame):
         test_indexes.append(test_index)
 
     mlflow = context.resources.mlflow
-    mlflow.set_tag("mlflow.runName", "toyota_runs")
     mlflow.log_params(split_params)
-    mlflow.log_params({"n_features": len(toyota_clean.columns) - 1, "n_observations": len(toyota_clean)})
-
+    mlflow.log_params({"n_observations": len(cut_outliers)})
     return train_indexes, test_indexes
 
 @dg.asset(
     description = "Train model with k-fold cross validation",
-    group_name="model_training",
+    group_name="manual_feature_selection",
     ins={
         "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
         "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
@@ -154,6 +163,8 @@ def split_folds(context: dg.AssetExecutionContext, toyota_clean: pd.DataFrame):
 )
 def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes):
     mlflow = context.resources.mlflow
+    mlflow.set_tag("mlflow.runName", "toyota_runs")
+    mlflow.log_params({"n_features": len(toyota_clean.columns) - 1})
     models = []
     for i, train_index in enumerate(train_indexes):
         train_fold = toyota_clean.iloc[train_index]
@@ -173,7 +184,7 @@ def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes)
 
 @dg.asset(
     description = "Evaluate model with k-fold cross validation",
-    group_name="model_evaluation",
+    group_name="manual_feature_selection",
     ins={
         "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
         "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
@@ -202,6 +213,92 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
     mlflow.log_metrics(metrics_means)
     return metrics_means
 
+@dg.asset(
+    description = "Sequence selection of the best model",
+    group_name="forward_feature_selection",
+    ins={
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+    },
+    required_resource_keys={"mlflow_sequence"},
+)
+def sequence_selection(context: dg.AssetExecutionContext, cut_outliers):
+    from sklearn.feature_selection import SequentialFeatureSelector
+    from sklearn.linear_model import LinearRegression
+    from sklearn.model_selection import train_test_split
+
+    n_features = 1
+    mlflow = context.resources.mlflow_sequence
+    mlflow.set_experiment("sequence_selection")
+    mlflow.set_tag("mlflow.runName", f"sequence_{n_features}")
+
+    X = cut_outliers.drop(columns=["Price"], axis=1)
+    y = cut_outliers["Price"]
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=True)
+    sfs = SequentialFeatureSelector(LinearRegression(), n_features_to_select=n_features, direction="forward")
+    sfs.fit(X_train, y_train)
+    selected_features = X_train.columns[sfs.get_support()].tolist()
+    mlflow.log_params({"selected_features": selected_features, "n_features": n_features})
+    toyota_sequence = cut_outliers[selected_features + ["Price"]]
+    return toyota_sequence
+
+@dg.asset(
+    description = "Train model with k-fold cross validation",
+    group_name="forward_feature_selection",
+    ins={
+        "sequence_selection": dg.AssetIn(key=dg.AssetKey("sequence_selection")),
+        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+    },
+    required_resource_keys={"mlflow_sequence"},
+)
+def train_sequence_model(context: dg.AssetExecutionContext, sequence_selection, train_indexes):
+    mlflow = context.resources.mlflow_sequence
+    models = []
+    for i, train_index in enumerate(train_indexes):
+        train_fold = sequence_selection.iloc[train_index]
+        mlflow.start_run(run_name=f"Fold {i}", nested=True)
+        mlflow.autolog()
+        X_train = sm.add_constant(train_fold.drop(columns=["Price"], axis=1))
+        y_train = train_fold["Price"]
+        model = sm.OLS(y_train, X_train).fit()
+        mlflow.statsmodels.log_model(model, f"linear_regression_model_{i}")
+        model_data = {
+            "model": model,
+            "mlflow_run_id": mlflow.active_run().info.run_id,
+        }
+        mlflow.end_run()
+        models.append(model_data)
+    return models
+
+@dg.asset(
+    description = "Evaluate model with k-fold cross validation",
+    group_name="forward_feature_selection",
+    ins={
+        "sequence_selection": dg.AssetIn(key=dg.AssetKey("sequence_selection")),
+        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "train_sequence_model": dg.AssetIn(key=dg.AssetKey("train_sequence_model")),
+    },
+    required_resource_keys={"mlflow_sequence"},
+)
+def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selection, test_indexes, train_sequence_model):
+    mlflow = context.resources.mlflow_sequence
+    metrics_all = []
+    for i, test_index in enumerate(test_indexes):
+        test_fold = sequence_selection.iloc[test_index]
+        mlflow.start_run(run_id=train_sequence_model[i]["mlflow_run_id"], nested=True)
+        model = train_sequence_model[i]["model"]
+        X_test = sm.add_constant(test_fold.drop(columns=["Price"], axis=1))
+        y_test = test_fold["Price"]
+        y_pred = model.predict(X_test)
+        metrics = get_metrics(y_test, y_pred)
+        mlflow.log_metrics(metrics)
+        diagnosticPlotter = LinearRegDiagnostic(model)
+        diagnosticPlotter()
+        mlflow.log_artifact("./images/residual_plots.png")
+        mlflow.end_run()
+        metrics_all.append(metrics)
+    metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    mlflow.log_metrics(metrics_means)
+    return metrics_means
 
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",
@@ -219,7 +316,7 @@ ridge_selection_notebook = define_dagstermill_asset(
     group_name="notebook",
     description="Ridge selection of the best model",
     ins={
-        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
     }
 )
 
@@ -229,7 +326,7 @@ lasso_selection_notebook = define_dagstermill_asset(
     group_name="notebook",
     description="Lasso selection of the best model",
     ins={
-        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
     }
 )
 
@@ -239,7 +336,7 @@ sequence_selection_notebook = define_dagstermill_asset(
     group_name="notebook",
     description="Sequence selection of the best model",
     ins={
-        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
     }
 )
 
@@ -249,7 +346,7 @@ pca_notebook = define_dagstermill_asset(
     group_name="notebook",
     description="PCA of the dataset",
     ins={
-        "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
     }
 )
 

@@ -12,6 +12,10 @@ defs = Definitions(
         "mlflow": mlflow_tracking.configured({
             "mlflow_tracking_uri": "http://localhost:5000",
             "experiment_name": "toyota",
-        })
+        }),
+        "mlflow_sequence": mlflow_tracking.configured({
+            "mlflow_tracking_uri": "http://localhost:5000",
+            "experiment_name": "toyota_sequence",
+        }),
     }
 )

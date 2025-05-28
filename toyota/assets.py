@@ -44,8 +44,10 @@ def toyota_cut(map_strings: pd.DataFrame) -> pd.DataFrame:
     toyota = toyota[toyota["cc"] != 16000]
     toyota = toyota[toyota["m_mpv_verso"] != 1]
     toyota.loc[(toyota["m_terra"] == 1) & ((toyota["m_comfort"] == 1) | (toyota["m_sedan"] == 1)), "m_terra"] = 0
+    toyota['Trunk'] = toyota['Doors'].apply(lambda x: 1 if x == 3 or x == 5 else 0)
+    toyota['Five_Doors'] = toyota['Doors'].apply(lambda x: 0 if x <= 3 else 1)
     toyota.drop(columns=["Id", "Cylinders", "Petrol", "m_life_months", "Mfg_Month", "Radio_cassette", "Age_08_04", "m_matic", "m_dsl", "m_airco", "valve", "m_mpv_verso",
-    "m_keuze_occ_uit", "m_g3", "m_b_ed", "m_sw", "m_xl", "m_pk", "m_nav", "m_ll", "m_gl", "m_comm"], inplace=True)
+    "m_keuze_occ_uit", "m_g3", "m_b_ed", "m_sw", "m_xl", "m_pk", "m_nav", "m_ll", "m_gl", "m_comm", 'Doors'], inplace=True)
     return toyota
 
 @dg.asset(
@@ -226,9 +228,8 @@ def sequence_selection(context: dg.AssetExecutionContext, cut_outliers):
     from sklearn.linear_model import LinearRegression
     from sklearn.model_selection import train_test_split
 
-    n_features = 1
+    n_features = 2
     mlflow = context.resources.mlflow_sequence
-    mlflow.set_experiment("sequence_selection")
     mlflow.set_tag("mlflow.runName", f"sequence_{n_features}")
 
     X = cut_outliers.drop(columns=["Price"], axis=1)
@@ -303,7 +304,7 @@ def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selectio
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_strings.ipynb"),
-    group_name="notebook",
+    group_name="data_preprocessing",
     description="Strings analysis of the Toyota dataset",
     ins={
         "toyota_df": dg.AssetIn(key=dg.AssetKey("toyota_df")),
@@ -333,7 +334,7 @@ lasso_selection_notebook = define_dagstermill_asset(
 sequence_selection_notebook = define_dagstermill_asset(
     name="sequence_selection_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/sequence_selection.ipynb"),
-    group_name="notebook",
+    group_name="forward_feature_selection",
     description="Sequence selection of the best model",
     ins={
         "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
@@ -353,7 +354,7 @@ pca_notebook = define_dagstermill_asset(
 first_data_cleaning_notebook = define_dagstermill_asset(
     name="first_data_cleaning_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/first_data_cleaning.ipynb"),
-    group_name="notebook",
+    group_name="data_preprocessing",
     description="First data cleaning of the dataset",
     ins={
         "map_strings": dg.AssetIn(key=dg.AssetKey("map_strings")),
@@ -363,7 +364,7 @@ first_data_cleaning_notebook = define_dagstermill_asset(
 manual_feature_selection_notebook = define_dagstermill_asset(
     name="manual_feature_selection_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/manual_feature_selection.ipynb"),
-    group_name="notebook",
+    group_name="manual_feature_selection",
     description="Manual feature selection of the dataset",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),

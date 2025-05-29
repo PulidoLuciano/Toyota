@@ -113,8 +113,9 @@ def cut_outliers(ln_transform: pd.DataFrame) -> pd.DataFrame:
 )
 def toyota_clean(cut_outliers: pd.DataFrame) -> pd.DataFrame:
     columns = ["Central_Lock", "Met_Color", "Airbag_2", "ABS", "Backseat_Divider", "Metallic_Rim", "Radio", "Diesel", "Airbag_1", "Sport_Model", "m_16v", "m_vvti", "Automatic",
-               "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "Doors", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
-               "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d"]
+               "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
+               "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d", "Five_Doors",
+               "Trunk", "m_exec"]
     toyota = cut_outliers.drop(columns, axis=1)
     return toyota
 
@@ -228,7 +229,7 @@ def sequence_selection(context: dg.AssetExecutionContext, cut_outliers):
     from sklearn.linear_model import LinearRegression
     from sklearn.model_selection import train_test_split
 
-    n_features = 2
+    n_features = 13
     mlflow = context.resources.mlflow_sequence
     mlflow.set_tag("mlflow.runName", f"sequence_{n_features}")
 

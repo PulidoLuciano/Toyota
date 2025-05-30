@@ -92,9 +92,11 @@ def ln_transform(toyota_scale: pd.DataFrame) -> pd.DataFrame:
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     },
 )
-def cut_outliers(ln_transform: pd.DataFrame) -> pd.DataFrame:
+def cut_outliers(ln_transform: pd.DataFrame) -> dict[str, pd.DataFrame]:
     toyota_transformed = ln_transform.copy()
-    outliers_remove_idx = [
+    
+    toyota_transformed_ols = toyota_transformed.drop([
+        # Outliers para OLS
         # Run 1
         138,  523, 1058,  601,  141,  171,  147,  221,  192,  393,  166,  191,
         # Run 2
@@ -105,9 +107,29 @@ def cut_outliers(ln_transform: pd.DataFrame) -> pd.DataFrame:
         77, 120, 146, 154, 1109, 1047, 119, 13, 185, 796, 380, 115, 237, 187, 68,
 
         # El modelo no mejora en runs posteriores.
-    ]
-    toyota_transformed = toyota_transformed.drop(outliers_remove_idx)
-    return toyota_transformed
+    ])
+    toyota_transformed_lasso = toyota_transformed_ols.drop([
+        16, 49, 14, 15, 330, 1133, 1261, 17, 1432, 
+        410, 320, 1378, 388, 1131, 94, 991, 609,
+        5, 102, 1072, 1268, 314, 1313, 163, 1353, 
+        106, 19, 91, 64, 4, 114, 826, 668,
+        # Si seguimos limpiando, Lasso no mejora.
+    ])
+    toyota_transformed_ridge = toyota_transformed_ols.drop([
+        1131, 1133
+    ])
+    toyota_transformed_sequence = toyota_transformed_ols.drop([])
+    
+    cut_outliers = {
+        'original': toyota_transformed_ols, # NOT CLEANED. Se usa como input para las notebooks.
+        
+        'ols': toyota_transformed_ols,
+        'lasso': toyota_transformed_lasso,
+        'ridge': toyota_transformed_ridge,
+        'sequence': toyota_transformed_sequence,
+    }
+    
+    return cut_outliers
 
 @dg.asset(
     description="Delete features from the dataset",
@@ -116,57 +138,65 @@ def cut_outliers(ln_transform: pd.DataFrame) -> pd.DataFrame:
         "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
     },
 )
-def toyota_clean(cut_outliers: pd.DataFrame) -> pd.DataFrame:
+def toyota_clean(cut_outliers) -> pd.DataFrame:
     columns = ["Central_Lock", "Met_Color", "Airbag_2", "ABS", "Backseat_Divider", "Metallic_Rim", "Radio", "Diesel", "Airbag_1", "Sport_Model", "m_16v", "m_vvti", "Automatic",
                "Gears", "m_sedan", "m_bns", "m_wagon", "Power_Steering", "Mistlamps", "Tow_Bar", "m_matic4", "m_matic3", "m_g6", "m_gtsi", "m_sport", "Boardcomputer", 
                "m_terra", "m_luna", "m_sol", "m_comfort", "CD_Player", "Powered_Windows", "BOVAG_Guarantee", "Airco", "Mfr_Guarantee", "m_hatch_b", "m_liftb", "m_d4d", "Five_Doors",
                "Trunk", "m_exec"]
-    toyota = cut_outliers.drop(columns, axis=1)
+    toyota = cut_outliers['ols'].drop(columns, axis=1)
     return toyota
 
 @dg.multi_asset(
     description="Split the dataset using k-fold cross validation",
     group_name="data_preprocessing",
     outs={
-        "train_indexes": dg.AssetOut(
+        "train_indexes_by_method": dg.AssetOut(
             description="Train indexes",
             group_name="data_preprocessing",
         ),
-        "test_indexes": dg.AssetOut(
+        "test_indexes_by_method": dg.AssetOut(
             description="Test indexes",
             group_name="data_preprocessing",
         ),
     },
     required_resource_keys={"mlflow"},
 )
-def split_folds(context: dg.AssetExecutionContext, cut_outliers: pd.DataFrame):
+def split_folds(context: dg.AssetExecutionContext, cut_outliers):
     split_params = {
         "n_splits": 5,
         "random_state": 42,
         "shuffle": True,
     }
-    kf = KFold(**split_params)
-    folds = kf.split(cut_outliers)
 
-    train_indexes = []
-    test_indexes = []
+    # train_indexes = []
+    # test_indexes = []
 
-    for (train_index, test_index) in folds:
-        train_indexes.append(train_index)
-        test_indexes.append(test_index)
+    # INSERT_YOUR_CODE
+    train_indexes_by_method = {}
+    test_indexes_by_method = {}
+    for key, cleaned_df in cut_outliers.items():
+        kf = KFold(**split_params)
+        folds = kf.split(cleaned_df)
+        train_indexes_by_method[key] = []
+        test_indexes_by_method[key] = []
+        for (train_index, test_index) in folds:
+            train_indexes_by_method[key].append(train_index)
+            test_indexes_by_method[key].append(test_index)
 
-    return train_indexes, test_indexes
+    return train_indexes_by_method, test_indexes_by_method
 
 @dg.asset(
     description = "Train model with k-fold cross validation",
     group_name="manual_feature_selection",
     ins={
         "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
-        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+        "train_indexes_by_method": dg.AssetIn(key=dg.AssetKey("train_indexes_by_method")),
     },
     required_resource_keys={"mlflow"},
 )
-def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes):
+def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes_by_method):
+    train_indexes = train_indexes_by_method["ols"]
+    
     mlflow = context.resources.mlflow
     mlflow.set_tag("mlflow.runName", "toyota_runs")
     mlflow.log_params({"n_splits": len(train_indexes)})
@@ -193,12 +223,14 @@ def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes)
     group_name="manual_feature_selection",
     ins={
         "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
-        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "test_indexes_by_method": dg.AssetIn(key=dg.AssetKey("test_indexes_by_method")),
         "train_models": dg.AssetIn(key=dg.AssetKey("train_models")),
     },
     required_resource_keys={"mlflow"},
 )
-def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes, train_models):
+def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes_by_method, train_models):
+    test_indexes = test_indexes_by_method["ols"]
+    
     mlflow = context.resources.mlflow
     metrics_all = []
     for i, test_index in enumerate(test_indexes):
@@ -216,6 +248,7 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
         mlflow.end_run()
         metrics_all.append(metrics)
     metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    metrics_means['observations'] = toyota_clean.shape[0]
     mlflow.log_metrics(metrics_means)
     return metrics_means
 
@@ -228,6 +261,8 @@ def evaluate_model(context: dg.AssetExecutionContext, toyota_clean, test_indexes
     required_resource_keys={"mlflow_sequence"},
 )
 def sequence_selection(context: dg.AssetExecutionContext, cut_outliers):
+    cut_outliers = cut_outliers['sequence']
+    
     from sklearn.feature_selection import SequentialFeatureSelector
     from sklearn.linear_model import LinearRegression
     from sklearn.model_selection import train_test_split
@@ -251,11 +286,13 @@ def sequence_selection(context: dg.AssetExecutionContext, cut_outliers):
     group_name="forward_feature_selection",
     ins={
         "sequence_selection": dg.AssetIn(key=dg.AssetKey("sequence_selection")),
-        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+        "train_indexes_by_method": dg.AssetIn(key=dg.AssetKey("train_indexes_by_method")),
     },
     required_resource_keys={"mlflow_sequence"},
 )
-def train_sequence_model(context: dg.AssetExecutionContext, sequence_selection, train_indexes):
+def train_sequence_model(context: dg.AssetExecutionContext, sequence_selection, train_indexes_by_method):
+    train_indexes = train_indexes_by_method['sequence']
+    
     mlflow = context.resources.mlflow_sequence
     models = []
     for i, train_index in enumerate(train_indexes):
@@ -279,12 +316,14 @@ def train_sequence_model(context: dg.AssetExecutionContext, sequence_selection, 
     group_name="forward_feature_selection",
     ins={
         "sequence_selection": dg.AssetIn(key=dg.AssetKey("sequence_selection")),
-        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "test_indexes_by_method": dg.AssetIn(key=dg.AssetKey("test_indexes_by_method")),
         "train_sequence_model": dg.AssetIn(key=dg.AssetKey("train_sequence_model")),
     },
     required_resource_keys={"mlflow_sequence"},
 )
-def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selection, test_indexes, train_sequence_model):
+def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selection, test_indexes_by_method, train_sequence_model):
+    test_indexes = test_indexes_by_method['sequence']
+    
     mlflow = context.resources.mlflow_sequence
     metrics_all = []
     for i, test_index in enumerate(test_indexes):
@@ -302,6 +341,7 @@ def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selectio
         mlflow.end_run()
         metrics_all.append(metrics)
     metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    metrics_means['observations'] = sequence_selection.shape[0]
     mlflow.log_metrics(metrics_means)
     return metrics_means
 
@@ -335,7 +375,9 @@ def test_lasso(context: dg.AssetExecutionContext, clean_lasso):
     },
 )
 def clean_ridge(cut_outliers):
-    return cut_outliers
+    ready_ridge_df = cut_outliers['ridge'].copy()
+    ready_ridge_df = ready_ridge_df[['Price','Mfg_Year', 'Weight', 'KM', 'm_vvtli', 'Quarterly_Tax', 'Automatic_airco', 'CNG', 'Diesel', 'm_d4d', 'Guarantee_Period', 'm_matic3', 'm_gtsi', 'm_g6', 'm_liftb', 'm_bns', 'Powered_Windows', 'm_hatch_b', 'm_matic4', 'm_comfort', 'Mfr_Guarantee', 'HP']]
+    return ready_ridge_df
 
 @dg.asset(
     description = "Clean for lasso",
@@ -345,19 +387,23 @@ def clean_ridge(cut_outliers):
     },
 )
 def clean_lasso(cut_outliers):
-    return cut_outliers
+    ready_lasso_df = cut_outliers['lasso'].copy()
+    ready_lasso_df = ready_lasso_df[['Price', 'Mfg_Year', 'KM', 'HP', 'Met_Color', 'Automatic', 'cc', 'Gears', 'Quarterly_Tax', 'Weight', 'Mfr_Guarantee', 'BOVAG_Guarantee', 'Guarantee_Period', 'ABS', 'Airbag_1', 'Airbag_2', 'Airco', 'Automatic_airco', 'Boardcomputer', 'CD_Player', 'Powered_Windows', 'Power_Steering', 'Metallic_Rim', 'Tow_Bar', 'CNG', 'm_16v', 'm_terra', 'm_liftb', 'm_wagon', 'm_sol', 'm_sedan', 'm_comfort', 'm_g6', 'm_d4d', 'm_gtsi', 'Trunk', 'Five_Doors']]
+    return ready_lasso_df
 
 @dg.asset(
     description = "Train a single model with lasso",
     group_name="lasso_selection",
     ins={
         "clean_lasso": dg.AssetIn(key=dg.AssetKey("clean_lasso")),
-        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+        "train_indexes_by_method": dg.AssetIn(key=dg.AssetKey("train_indexes_by_method")),
     },
     required_resource_keys={"mlflow_lasso"},
 )
-def train_lasso(context: dg.AssetExecutionContext, clean_lasso, train_indexes):
-    alpha = 0.1
+def train_lasso(context: dg.AssetExecutionContext, clean_lasso, train_indexes_by_method):
+    train_indexes = train_indexes_by_method['lasso']
+    
+    alpha = 3.66
     models = []
 
     mlflow = context.resources.mlflow_lasso
@@ -388,12 +434,14 @@ def train_lasso(context: dg.AssetExecutionContext, clean_lasso, train_indexes):
     group_name="lasso_selection",
     ins={
         "train_lasso": dg.AssetIn(key=dg.AssetKey("train_lasso")),
-        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "test_indexes_by_method": dg.AssetIn(key=dg.AssetKey("test_indexes_by_method")),
         "clean_lasso": dg.AssetIn(key=dg.AssetKey("clean_lasso")),
     },
     required_resource_keys={"mlflow_lasso"},
 )
-def evaluate_lasso(context: dg.AssetExecutionContext, train_lasso, test_indexes, clean_lasso):
+def evaluate_lasso(context: dg.AssetExecutionContext, train_lasso, test_indexes_by_method, clean_lasso):
+    test_indexes = test_indexes_by_method["lasso"]
+    
     mlflow = context.resources.mlflow_lasso
     metrics_all = []
     for i, test_index in enumerate(test_indexes):
@@ -408,6 +456,7 @@ def evaluate_lasso(context: dg.AssetExecutionContext, train_lasso, test_indexes,
         mlflow.end_run()
         metrics_all.append(metrics)
     metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    metrics_means['observations'] = clean_lasso.shape[0]
     mlflow.log_metrics(metrics_means)
     return metrics_means
 
@@ -417,11 +466,13 @@ def evaluate_lasso(context: dg.AssetExecutionContext, train_lasso, test_indexes,
     group_name="ridge_selection",
     ins={
         "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
-        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+        "train_indexes_by_method": dg.AssetIn(key=dg.AssetKey("train_indexes_by_method")),
     },
     required_resource_keys={"mlflow_ridge"},
 )
-def train_ridge(context: dg.AssetExecutionContext, clean_ridge, train_indexes):
+def train_ridge(context: dg.AssetExecutionContext, clean_ridge, train_indexes_by_method):
+    train_indexes = train_indexes_by_method['ridge']
+    
     alpha = 0.1
     models = []
 
@@ -453,12 +504,14 @@ def train_ridge(context: dg.AssetExecutionContext, clean_ridge, train_indexes):
     group_name="ridge_selection",
     ins={
         "train_ridge": dg.AssetIn(key=dg.AssetKey("train_ridge")),
-        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "test_indexes_by_method": dg.AssetIn(key=dg.AssetKey("test_indexes_by_method")),
         "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
     },
     required_resource_keys={"mlflow_ridge"},
 )
-def evaluate_ridge(context: dg.AssetExecutionContext, train_ridge, test_indexes, clean_ridge):
+def evaluate_ridge(context: dg.AssetExecutionContext, train_ridge, test_indexes_by_method, clean_ridge):
+    test_indexes = test_indexes_by_method["ridge"]
+    
     mlflow = context.resources.mlflow_ridge
     metrics_all = []
     for i, test_index in enumerate(test_indexes):
@@ -473,6 +526,7 @@ def evaluate_ridge(context: dg.AssetExecutionContext, train_ridge, test_indexes,
         mlflow.end_run()
         metrics_all.append(metrics)
     metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    metrics_means['observations'] = clean_ridge.shape[0]
     mlflow.log_metrics(metrics_means)
     return metrics_means
 

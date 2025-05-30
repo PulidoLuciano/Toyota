@@ -477,7 +477,7 @@ def evaluate_ridge(context: dg.AssetExecutionContext, train_ridge, test_indexes,
 
 @dg.asset(
     description = "Create principal components",
-    group_name="pca",
+    group_name="dimensionality_reduction",
     ins={
         "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
     },
@@ -489,7 +489,7 @@ def pcr(context: dg.AssetExecutionContext, toyota_clean):
     df = original_df.drop(columns=["Price"], axis=1)
     mlflow = context.resources.mlflow_pca
     mlflow.set_tag("mlflow.runName", "pcr")
-    mlflow.log_params({"n_components": n_components, "n_features": len(df.columns)})
+    mlflow.log_params({"n_components": n_components, "n_features": len(df.columns), "n_observations": len(original_df)})
     pca = PCA(n_components=n_components)
     toyota_pca = pca.fit_transform(df)
     variance_explained = pca.explained_variance_ratio_
@@ -528,6 +528,33 @@ def pcr(context: dg.AssetExecutionContext, toyota_clean):
     mlflow.log_metrics(metrics)
     mlflow.end_run()
     return model
+
+@dg.asset(
+    description = "Train and evaluate using PLS",
+    group_name="dimensionality_reduction",
+    ins={
+        "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
+    },
+    required_resource_keys={"mlflow_pls"},
+)
+def pls(context: dg.AssetExecutionContext, toyota_clean):
+    from sklearn.cross_decomposition import PLSRegression
+    n_components = 4
+    original_df = toyota_clean.copy()
+    X = original_df.drop(columns=["Price"], axis=1)
+    y = original_df["Price"]
+    mlflow = context.resources.mlflow_pls
+    mlflow.set_tag("mlflow.runName", "pls")
+    mlflow.log_params({"n_components": n_components, "n_features": len(X.columns), "n_observations": len(original_df)})
+    mlflow.autolog()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=True)
+    pls = PLSRegression(n_components=n_components)
+    pls.fit_transform(X_train, y_train)
+    y_pred = pls.predict(X_test)
+    metrics = get_metrics(y_test, y_pred)
+    mlflow.log_metrics(metrics)
+    mlflow.end_run()
+    return pls
 
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",

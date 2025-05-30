@@ -164,7 +164,7 @@ def split_folds(context: dg.AssetExecutionContext, cut_outliers: pd.DataFrame):
 def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes):
     mlflow = context.resources.mlflow
     mlflow.set_tag("mlflow.runName", "toyota_runs")
-    mlflow.set_params({"n_splits": len(train_indexes)})
+    mlflow.log_params({"n_splits": len(train_indexes)})
     mlflow.log_params({"n_features": len(toyota_clean.columns) - 1})
     models = []
     for i, train_index in enumerate(train_indexes):

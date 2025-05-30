@@ -150,9 +150,6 @@ def split_folds(context: dg.AssetExecutionContext, cut_outliers: pd.DataFrame):
         train_indexes.append(train_index)
         test_indexes.append(test_index)
 
-    mlflow = context.resources.mlflow
-    mlflow.log_params(split_params)
-    mlflow.log_params({"n_observations": len(cut_outliers)})
     return train_indexes, test_indexes
 
 @dg.asset(
@@ -167,6 +164,7 @@ def split_folds(context: dg.AssetExecutionContext, cut_outliers: pd.DataFrame):
 def train_models(context: dg.AssetExecutionContext, toyota_clean, train_indexes):
     mlflow = context.resources.mlflow
     mlflow.set_tag("mlflow.runName", "toyota_runs")
+    mlflow.set_params({"n_splits": len(train_indexes)})
     mlflow.log_params({"n_features": len(toyota_clean.columns) - 1})
     models = []
     for i, train_index in enumerate(train_indexes):
@@ -229,7 +227,7 @@ def sequence_selection(context: dg.AssetExecutionContext, cut_outliers):
     from sklearn.linear_model import LinearRegression
     from sklearn.model_selection import train_test_split
 
-    n_features = 13
+    n_features = 18
     mlflow = context.resources.mlflow_sequence
     mlflow.set_tag("mlflow.runName", f"sequence_{n_features}")
 
@@ -327,16 +325,6 @@ lasso_selection_notebook = define_dagstermill_asset(
     notebook_path= dg.file_relative_path(__file__, "./notebooks/lasso_selection.ipynb"),
     group_name="notebook",
     description="Lasso selection of the best model",
-    ins={
-        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
-    }
-)
-
-sequence_selection_notebook = define_dagstermill_asset(
-    name="sequence_selection_notebook",
-    notebook_path= dg.file_relative_path(__file__, "./notebooks/sequence_selection.ipynb"),
-    group_name="forward_feature_selection",
-    description="Sequence selection of the best model",
     ins={
         "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
     }

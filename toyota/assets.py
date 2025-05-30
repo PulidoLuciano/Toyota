@@ -1,13 +1,14 @@
 import dagster as dg
 from .utils import load_dataset, get_metrics, LinearRegDiagnostic, coefs_plot, rmse_plot, r2_plot
 from dagstermill import define_dagstermill_asset
+from sklearn.decomposition import PCA
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
 from .string_utils import *
-from sklearn.linear_model import Ridge, Lasso
+from sklearn.linear_model import Ridge, Lasso, LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 import seaborn as sns
@@ -529,6 +530,89 @@ def evaluate_ridge(context: dg.AssetExecutionContext, train_ridge, test_indexes_
     metrics_means['observations'] = clean_ridge.shape[0]
     mlflow.log_metrics(metrics_means)
     return metrics_means
+
+@dg.asset(
+    description = "Create principal components",
+    group_name="dimensionality_reduction",
+    ins={
+        "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
+    },
+    required_resource_keys={"mlflow_pca"},
+)
+def pcr(context: dg.AssetExecutionContext, toyota_clean):
+    n_components = 4
+    original_df = toyota_clean.copy()
+    df = original_df.drop(columns=["Price"], axis=1)
+    mlflow = context.resources.mlflow_pca
+    mlflow.set_tag("mlflow.runName", "pcr")
+    mlflow.log_params({"n_components": n_components, "n_features": len(df.columns), "n_observations": len(original_df), "features": original_df.columns.tolist()})
+    pca = PCA(n_components=n_components)
+    toyota_pca = pca.fit_transform(df)
+    variance_explained = pca.explained_variance_ratio_
+    cumulative_variance = np.cumsum(variance_explained)
+    variance_df = pd.DataFrame({
+        'PC': [f'PC{i+1}' for i in range(len(variance_explained))],
+        'Variance Explained': variance_explained,
+        'Cumulative Variance': cumulative_variance
+    })
+    mlflow.log_text(variance_df.to_string(), "variance_table.txt")
+    # Create a figure with multiple subplots
+    plt.figure(figsize=(15, 10))
+    # Scree Plot
+    plt.subplot(2, 2, 1)
+    plt.bar(range(1, len(variance_explained) + 1), variance_explained)
+    plt.xlabel('Principal Component')
+    plt.ylabel('Variance Explained')
+    plt.title('Scree Plot')
+    # Cumulative Variance Plot
+    plt.subplot(2, 2, 2)
+    plt.plot(range(1, len(cumulative_variance) + 1), cumulative_variance, 'bo-')
+    plt.axhline(y=0.8, color='r', linestyle='--')
+    plt.xlabel('Number of Components')
+    plt.ylabel('Cumulative Variance Explained')
+    plt.title('Cumulative Variance Explained')
+    plt.tight_layout()
+    mlflow.log_figure(plt.gcf(), "pca_plots.png")
+    plt.clf()
+
+    X_train, X_test, y_train, y_test = train_test_split(toyota_pca, original_df["Price"], test_size=0.3, random_state=42, shuffle=True)
+    mlflow.autolog()
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    metrics = get_metrics(y_test, y_pred)
+    mlflow.log_text(str(pd.Series(model.coef_, index=[f"PC{i+1}" for i in range(len(model.coef_))])), "coefficients.txt")
+    mlflow.log_metrics(metrics)
+    mlflow.end_run()
+    return model
+
+@dg.asset(
+    description = "Train and evaluate using PLS",
+    group_name="dimensionality_reduction",
+    ins={
+        "sequence_selection": dg.AssetIn(key=dg.AssetKey("sequence_selection")),
+    },
+    required_resource_keys={"mlflow_pls"},
+)
+def pls(context: dg.AssetExecutionContext, sequence_selection):
+    from sklearn.cross_decomposition import PLSRegression
+    n_components = 4
+    original_df = sequence_selection.copy()
+    X = original_df.drop(columns=["Price"], axis=1)
+    y = original_df["Price"]
+    mlflow = context.resources.mlflow_pls
+    mlflow.set_tag("mlflow.runName", "pls")
+    mlflow.log_params({"n_components": n_components, "n_features": len(X.columns), "n_observations": len(original_df), "features": original_df.columns.tolist()})
+    mlflow.autolog()
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=True)
+    pls = PLSRegression(n_components=n_components)
+    pls.fit(X_train, y_train)
+    y_pred = pls.predict(X_test)
+    metrics = get_metrics(y_test, y_pred)
+    mlflow.log_text(str(pls.coef_), "coefficients.txt")
+    mlflow.log_metrics(metrics)
+    mlflow.end_run()
+    return pls
 
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",

@@ -533,14 +533,14 @@ def pcr(context: dg.AssetExecutionContext, toyota_clean):
     description = "Train and evaluate using PLS",
     group_name="dimensionality_reduction",
     ins={
-        "toyota_clean": dg.AssetIn(key=dg.AssetKey("toyota_clean")),
+        "sequence_selection": dg.AssetIn(key=dg.AssetKey("sequence_selection")),
     },
     required_resource_keys={"mlflow_pls"},
 )
-def pls(context: dg.AssetExecutionContext, toyota_clean):
+def pls(context: dg.AssetExecutionContext, sequence_selection):
     from sklearn.cross_decomposition import PLSRegression
     n_components = 4
-    original_df = toyota_clean.copy()
+    original_df = sequence_selection.copy()
     X = original_df.drop(columns=["Price"], axis=1)
     y = original_df["Price"]
     mlflow = context.resources.mlflow_pls

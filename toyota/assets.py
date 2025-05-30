@@ -489,7 +489,7 @@ def pcr(context: dg.AssetExecutionContext, toyota_clean):
     df = original_df.drop(columns=["Price"], axis=1)
     mlflow = context.resources.mlflow_pca
     mlflow.set_tag("mlflow.runName", "pcr")
-    mlflow.log_params({"n_components": n_components, "n_features": len(df.columns), "n_observations": len(original_df)})
+    mlflow.log_params({"n_components": n_components, "n_features": len(df.columns), "n_observations": len(original_df), "features": original_df.columns.tolist()})
     pca = PCA(n_components=n_components)
     toyota_pca = pca.fit_transform(df)
     variance_explained = pca.explained_variance_ratio_
@@ -525,6 +525,7 @@ def pcr(context: dg.AssetExecutionContext, toyota_clean):
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
     metrics = get_metrics(y_test, y_pred)
+    mlflow.log_text(str(pd.Series(model.coef_, index=[f"PC{i+1}" for i in range(len(model.coef_))])), "coefficients.txt")
     mlflow.log_metrics(metrics)
     mlflow.end_run()
     return model
@@ -545,13 +546,14 @@ def pls(context: dg.AssetExecutionContext, sequence_selection):
     y = original_df["Price"]
     mlflow = context.resources.mlflow_pls
     mlflow.set_tag("mlflow.runName", "pls")
-    mlflow.log_params({"n_components": n_components, "n_features": len(X.columns), "n_observations": len(original_df)})
+    mlflow.log_params({"n_components": n_components, "n_features": len(X.columns), "n_observations": len(original_df), "features": original_df.columns.tolist()})
     mlflow.autolog()
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=True)
     pls = PLSRegression(n_components=n_components)
-    pls.fit_transform(X_train, y_train)
+    pls.fit(X_train, y_train)
     y_pred = pls.predict(X_test)
     metrics = get_metrics(y_test, y_pred)
+    mlflow.log_text(str(pls.coef_), "coefficients.txt")
     mlflow.log_metrics(metrics)
     mlflow.end_run()
     return pls

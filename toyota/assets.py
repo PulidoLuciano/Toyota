@@ -309,28 +309,188 @@ def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selectio
     description = "Test with ridge and multiples alphas",
     group_name="ridge_selection",
     ins={
-        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+        "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
     },
     required_resource_keys={"mlflow_ridge"},
 )
-def test_ridge(context: dg.AssetExecutionContext, cut_outliers):
-    return test_alphas(context.resources.mlflow_ridge, "testing_ridge", cut_outliers, 0, 4, Ridge)
+def test_ridge(context: dg.AssetExecutionContext, clean_ridge):
+    return test_alphas(context.resources.mlflow_ridge, "testing_ridge", clean_ridge, 0, 4, Ridge)
 
 @dg.asset(
     description = "Test with lasso and multiples alphas",
     group_name="lasso_selection",
     ins={
-        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+        "clean_lasso": dg.AssetIn(key=dg.AssetKey("clean_lasso")),
     },
     required_resource_keys={"mlflow_lasso"},
 )
-def test_lasso(context: dg.AssetExecutionContext, cut_outliers):
-    return test_alphas(context.resources.mlflow_lasso, "testing_lasso", cut_outliers, 0, 4, Lasso)
+def test_lasso(context: dg.AssetExecutionContext, clean_lasso):
+    return test_alphas(context.resources.mlflow_lasso, "testing_lasso", clean_lasso, 0, 4, Lasso)
+
+@dg.asset(
+    description = "Clean for ridge",
+    group_name="ridge_selection",
+    ins={
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+    },
+)
+def clean_ridge(cut_outliers):
+    return cut_outliers
+
+@dg.asset(
+    description = "Clean for lasso",
+    group_name="lasso_selection",
+    ins={
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+    },
+)
+def clean_lasso(cut_outliers):
+    return cut_outliers
+
+@dg.asset(
+    description = "Train a single model with ridge",
+    group_name="ridge_selection",
+    ins={
+        "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
+        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+    },
+)
+def train_ridge(clean_ridge, train_indexes):
+    return clean_ridge
+
+@dg.asset(
+    description = "Train a single model with lasso",
+    group_name="lasso_selection",
+    ins={
+        "clean_lasso": dg.AssetIn(key=dg.AssetKey("clean_lasso")),
+        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+    },
+    required_resource_keys={"mlflow_lasso"},
+)
+def train_lasso(context: dg.AssetExecutionContext, clean_lasso, train_indexes):
+    alpha = 0.1
+    models = []
+
+    mlflow = context.resources.mlflow_lasso
+    mlflow.set_tag("mlflow.runName", "single_lasso")
+    mlflow.log_params({"alpha": alpha})
+    mlflow.log_params({"n_features": len(clean_lasso.columns) - 1})
+
+    for i, train_index in enumerate(train_indexes):
+        train_fold = clean_lasso.iloc[train_index]
+        mlflow.start_run(run_name=f"Fold {i}", nested=True)
+        mlflow.autolog()
+        X_train = train_fold.drop(columns=["Price"], axis=1)
+        y_train = train_fold["Price"]
+        model = Lasso(alpha=alpha)
+        model.fit(X_train, y_train)
+        mlflow.sklearn.log_model(model, f"lasso_model_{i}")
+        model_data = {
+            "model": model,
+            "mlflow_run_id": mlflow.active_run().info.run_id,
+        }
+        mlflow.log_text(str(pd.Series(model.coef_, index=X_train.columns)), "features.txt")
+        mlflow.end_run()
+        models.append(model_data)
+    return models
+
+@dg.asset(
+    description = "Evaluate model with k-fold cross validation",
+    group_name="lasso_selection",
+    ins={
+        "train_lasso": dg.AssetIn(key=dg.AssetKey("train_lasso")),
+        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "clean_lasso": dg.AssetIn(key=dg.AssetKey("clean_lasso")),
+    },
+    required_resource_keys={"mlflow_lasso"},
+)
+def evaluate_lasso(context: dg.AssetExecutionContext, train_lasso, test_indexes, clean_lasso):
+    mlflow = context.resources.mlflow_lasso
+    metrics_all = []
+    for i, test_index in enumerate(test_indexes):
+        test_fold = clean_lasso.iloc[test_index]
+        mlflow.start_run(run_id=train_lasso[i]["mlflow_run_id"], nested=True)
+        model = train_lasso[i]["model"]
+        X_test = test_fold.drop(columns=["Price"], axis=1)
+        y_test = test_fold["Price"]
+        y_pred = model.predict(X_test)
+        metrics = get_metrics(y_test, y_pred)
+        mlflow.log_metrics(metrics)
+        mlflow.end_run()
+        metrics_all.append(metrics)
+    metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    mlflow.log_metrics(metrics_means)
+    return metrics_means
+
+
+@dg.asset(
+    description = "Train a single model with ridge",
+    group_name="ridge_selection",
+    ins={
+        "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
+        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
+    },
+    required_resource_keys={"mlflow_ridge"},
+)
+def train_ridge(context: dg.AssetExecutionContext, clean_ridge, train_indexes):
+    alpha = 0.1
+    models = []
+
+    mlflow = context.resources.mlflow_ridge
+    mlflow.set_tag("mlflow.runName", "single_ridge")
+    mlflow.log_params({"alpha": alpha})
+    mlflow.log_params({"n_features": len(clean_ridge.columns) - 1})
+
+    for i, train_index in enumerate(train_indexes):
+        train_fold = clean_ridge.iloc[train_index]
+        mlflow.start_run(run_name=f"Fold {i}", nested=True)
+        mlflow.autolog()
+        X_train = train_fold.drop(columns=["Price"], axis=1)
+        y_train = train_fold["Price"]
+        model = Ridge(alpha=alpha)
+        model.fit(X_train, y_train)
+        mlflow.sklearn.log_model(model, f"ridge_model_{i}")
+        model_data = {
+            "model": model,
+            "mlflow_run_id": mlflow.active_run().info.run_id,
+        }
+        mlflow.log_text(str(pd.Series(model.coef_, index=X_train.columns)), "features.txt")
+        mlflow.end_run()
+        models.append(model_data)
+    return models
+
+@dg.asset(
+    description = "Evaluate model with k-fold cross validation",
+    group_name="ridge_selection",
+    ins={
+        "train_ridge": dg.AssetIn(key=dg.AssetKey("train_ridge")),
+        "test_indexes": dg.AssetIn(key=dg.AssetKey("test_indexes")),
+        "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
+    },
+    required_resource_keys={"mlflow_ridge"},
+)
+def evaluate_ridge(context: dg.AssetExecutionContext, train_ridge, test_indexes, clean_ridge):
+    mlflow = context.resources.mlflow_ridge
+    metrics_all = []
+    for i, test_index in enumerate(test_indexes):
+        test_fold = clean_ridge.iloc[test_index]
+        mlflow.start_run(run_id=train_ridge[i]["mlflow_run_id"], nested=True)
+        model = train_ridge[i]["model"]
+        X_test = test_fold.drop(columns=["Price"], axis=1)
+        y_test = test_fold["Price"]
+        y_pred = model.predict(X_test)
+        metrics = get_metrics(y_test, y_pred)
+        mlflow.log_metrics(metrics)
+        mlflow.end_run()
+        metrics_all.append(metrics)
+    metrics_means = {key: np.mean([metrics[key] for metrics in metrics_all]) for key in metrics_all[0]}
+    mlflow.log_metrics(metrics_means)
+    return metrics_means
 
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_strings.ipynb"),
-    group_name="data_preprocessing",
+    group_name="notebook",
     description="Strings analysis of the Toyota dataset",
     ins={
         "toyota_df": dg.AssetIn(key=dg.AssetKey("toyota_df")),
@@ -370,7 +530,7 @@ pca_notebook = define_dagstermill_asset(
 first_data_cleaning_notebook = define_dagstermill_asset(
     name="first_data_cleaning_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/first_data_cleaning.ipynb"),
-    group_name="data_preprocessing",
+    group_name="notebook",
     description="First data cleaning of the dataset",
     ins={
         "map_strings": dg.AssetIn(key=dg.AssetKey("map_strings")),
@@ -380,7 +540,7 @@ first_data_cleaning_notebook = define_dagstermill_asset(
 manual_feature_selection_notebook = define_dagstermill_asset(
     name="manual_feature_selection_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/manual_feature_selection.ipynb"),
-    group_name="manual_feature_selection",
+    group_name="notebook",
     description="Manual feature selection of the dataset",
     ins={
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
@@ -415,7 +575,7 @@ def test_alphas(mlflow, run_name, df, min_alpha, max_alpha, Method):
         coefs.append(model.coef_)
         rmse_list.append(np.sqrt(mse))
         r2_list.append(r2_validated)
-        mlflow.log_metrics({"mse": mse, "rmse": np.sqrt(mse), "r2_validated": r2_validated})
+        mlflow.log_metrics({"mse": mse, "rmse": np.sqrt(mse), "r2_validation": r2_validated})
         mlflow.log_text(str(pd.Series(model.coef_, index=X_train.columns)), "features.txt")
         mlflow.end_run()
     

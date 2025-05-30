@@ -348,17 +348,6 @@ def clean_lasso(cut_outliers):
     return cut_outliers
 
 @dg.asset(
-    description = "Train a single model with ridge",
-    group_name="ridge_selection",
-    ins={
-        "clean_ridge": dg.AssetIn(key=dg.AssetKey("clean_ridge")),
-        "train_indexes": dg.AssetIn(key=dg.AssetKey("train_indexes")),
-    },
-)
-def train_ridge(clean_ridge, train_indexes):
-    return clean_ridge
-
-@dg.asset(
     description = "Train a single model with lasso",
     group_name="lasso_selection",
     ins={

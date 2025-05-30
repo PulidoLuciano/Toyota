@@ -1,5 +1,5 @@
 import dagster as dg
-from .utils import load_dataset, get_metrics, LinearRegDiagnostic
+from .utils import load_dataset, get_metrics, LinearRegDiagnostic, coefs_plot, rmse_plot, r2_plot
 from dagstermill import define_dagstermill_asset
 import pandas as pd
 import numpy as np
@@ -7,6 +7,11 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 import statsmodels.api as sm
 from .string_utils import *
+from sklearn.linear_model import Ridge, Lasso
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 @dg.multi_asset(
     description="Load necessary datasets",
@@ -300,6 +305,28 @@ def evaluate_sequence_model(context: dg.AssetExecutionContext, sequence_selectio
     mlflow.log_metrics(metrics_means)
     return metrics_means
 
+@dg.asset(
+    description = "Test with ridge and multiples alphas",
+    group_name="ridge_selection",
+    ins={
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+    },
+    required_resource_keys={"mlflow_ridge"},
+)
+def test_ridge(context: dg.AssetExecutionContext, cut_outliers):
+    return test_alphas(context.resources.mlflow_ridge, "testing_ridge", cut_outliers, 0, 4, Ridge)
+
+@dg.asset(
+    description = "Test with lasso and multiples alphas",
+    group_name="lasso_selection",
+    ins={
+        "cut_outliers": dg.AssetIn(key=dg.AssetKey("cut_outliers")),
+    },
+    required_resource_keys={"mlflow_lasso"},
+)
+def test_lasso(context: dg.AssetExecutionContext, cut_outliers):
+    return test_alphas(context.resources.mlflow_lasso, "testing_lasso", cut_outliers, 0, 4, Lasso)
+
 toyota_strings_notebook = define_dagstermill_asset(
     name="toyota_strings_notebook",
     notebook_path= dg.file_relative_path(__file__, "./notebooks/toyota_strings.ipynb"),
@@ -359,3 +386,43 @@ manual_feature_selection_notebook = define_dagstermill_asset(
         "ln_transform": dg.AssetIn(key=dg.AssetKey("ln_transform")),
     }
 )
+
+def test_alphas(mlflow, run_name, df, min_alpha, max_alpha, Method):
+    alphas = np.logspace(min_alpha, max_alpha, 20)
+
+    coefs = []
+    rmse_list = []
+    r2_list = []
+
+    mlflow.set_tag("mlflow.runName", run_name)
+    mlflow.log_params({"n_features": len(df.columns) - 1})
+    mlflow.log_params({"min_alpha": min_alpha})
+    mlflow.log_params({"max_alpha": max_alpha})
+
+    X = df.drop(columns=["Price"], axis=1)
+    y = df["Price"]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, shuffle=True)
+    
+    for alpha in alphas:
+        mlflow.start_run(run_name=f"alpha_{alpha}", nested=True)
+        mlflow.log_params({"alpha": alpha})
+        mlflow.autolog()
+        model = Method(alpha=alpha)
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+        r2_validated = r2_score(y_test, y_pred)
+        coefs.append(model.coef_)
+        rmse_list.append(np.sqrt(mse))
+        r2_list.append(r2_validated)
+        mlflow.log_metrics({"mse": mse, "rmse": np.sqrt(mse), "r2_validated": r2_validated})
+        mlflow.log_text(str(pd.Series(model.coef_, index=X_train.columns)), "features.txt")
+        mlflow.end_run()
+    
+    alphas = pd.Index(alphas, name="alpha")
+    coefs = pd.DataFrame(coefs, index=alphas, columns=[f"{name}" for _, name in enumerate(X_train.columns)])
+    mlflow.log_figure(coefs_plot(coefs), "coefficients.png")
+    mlflow.log_figure(rmse_plot(alphas, rmse_list), "rmse.png")
+    mlflow.log_figure(r2_plot(alphas, r2_list), "r2.png")
+    mlflow.end_run()
+    return alphas

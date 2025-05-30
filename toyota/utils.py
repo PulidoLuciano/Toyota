@@ -19,6 +19,38 @@ def get_metrics(y_test: pd.Series, y_pred: pd.Series) -> dict:
     r2_validation = r2_score(y_test, y_pred)
     return {"mse": mse, "mae": mae, "rmse": rmse, "r2_validation": r2_validation}
 
+
+def coefs_plot(coefs):
+    plt.clf()
+    sns.lineplot(data=coefs)
+    plt.xscale("log")
+    return plt.gcf()
+
+def rmse_plot(alphas, rmse_list):
+    plt.clf()
+    sns.lineplot(x=alphas, y=rmse_list)
+    plt.xscale("log")
+    plt.ylabel("RMSE")
+    # Find and mark the minimum MSE point
+    min_mse_idx = np.argmin(rmse_list)
+    min_alpha = alphas[min_mse_idx]
+    min_mse = rmse_list[min_mse_idx]
+    plt.plot(min_alpha, min_mse, 'ro', label=f'Min RMSE: {min_mse:.2f}\nAlpha: {min_alpha:.2e}')
+    plt.legend()
+    return plt.gcf()
+
+def r2_plot(alphas, r2_list):
+    plt.clf()
+    sns.lineplot(x=alphas, y=r2_list)
+    plt.xscale("log")
+    plt.ylabel("R2")
+    min_r2_idx = np.argmax(r2_list)
+    min_alpha = alphas[min_r2_idx]
+    min_r2 = r2_list[min_r2_idx]
+    plt.plot(min_alpha, min_r2, 'ro', label=f'Min R2: {min_r2:.2f}\nAlpha: {min_alpha:.2e}')
+    plt.legend()
+    return plt.gcf()
+
 style_talk = 'seaborn-talk'    #refer to plt.style.available
 
 class LinearRegDiagnostic():

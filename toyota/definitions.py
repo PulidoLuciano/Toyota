@@ -17,5 +17,13 @@ defs = Definitions(
             "mlflow_tracking_uri": "http://localhost:5000",
             "experiment_name": "toyota_sequence",
         }),
+        "mlflow_ridge": mlflow_tracking.configured({
+            "mlflow_tracking_uri": "http://localhost:5000",
+            "experiment_name": "toyota_ridge",
+        }),
+        "mlflow_lasso": mlflow_tracking.configured({
+            "mlflow_tracking_uri": "http://localhost:5000",
+            "experiment_name": "toyota_lasso",
+        }),
     }
 )
